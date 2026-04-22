@@ -131,6 +131,32 @@ Expect: `OK`.
 - **"resource not accessible by integration".** Fine-grained token scoped to wrong repo. Widen scope or switch to full `repo`.
 - **Rate limit.** Unlikely for demo volume, but bot account hits 5000/hr. If triggered during rehearsal, back off and retry.
 
+## Known gaps / corner cases
+
+- **MAJOR — missing `GITHUB_TOKEN` fails late with cryptic error.**
+  `server/mcp_config.py:28-40` wraps the MCP server add in
+  `if token:` with no warning path. When the token is unset, PR
+  creation fails mid-run with "tool not found" rather than a clear
+  startup error. Fix sketch: raise `ConfigError("GITHUB_TOKEN missing;
+  PR creation will fail")` in `build_mcp_servers()` and have the
+  server refuse to start in investigate mode.
+- **MAJOR — PR creation failure after dossier is emitted leaves run
+  ambiguous.** The investigator's prompt emits the dossier before the
+  `create_pull_request` call; if the MCP call fails, the UI has a
+  complete dossier but no PR link. Fix sketch: emit dossier with
+  `pr_status: "pending"` and emit the definitive `pr_opened` (or
+  synthesized `aborted reason=pr_failed`) immediately after the MCP
+  round-trip.
+- **MINOR — no MCP subprocess crash recovery.** If the `npx`
+  server crashes mid-run, the SDK reports a tool error but doesn't
+  restart it. Document as a hard failure mode; rely on preflight
+  (`npx @modelcontextprotocol/server-github` reachable) instead of
+  mid-run recovery.
+- **MINOR — branch name collision on demo re-runs.** The agent picks
+  `fix/reproducibility-<timestamp>`; within a rehearsal window the
+  timestamps can collide at second resolution. Fix sketch: include a
+  short random suffix, e.g. `-$(openssl rand -hex 2)`.
+
 ## Open questions / deferred
 
 - GitHub App instead of PAT: would be cleaner and scope-limited, but MVP uses PAT. `DEFERRED`.

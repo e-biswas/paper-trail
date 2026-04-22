@@ -166,6 +166,84 @@ notes: "one-line summary"
 - **Parser emits garbage.** Section body didn't match expected schema. Tighten the prompt's required body format.
 - **`pr_opened` never fires.** GitHub MCP failed — check `mcp_config.md` troubleshooting.
 
+## Planned — abort + live cost meter (see TASKS D5.X-abort)
+
+A client-triggered cancel path and a cumulative-cost stream, both depending on
+contract edits documented in [../integration.md](../integration.md). Summary of
+the agent-side work:
+
+- **Cancel path.** The server's WS receive loop (see
+  [server.md](server.md)) accepts a `{"type": "stop"}` frame mid-run. It
+  cancels the `asyncio.Task` wrapping `run_agent(config)`. The orchestrator
+  catches `asyncio.CancelledError`, flushes any open phase via the existing
+  `_PhaseTracker`, and emits one terminal `session_end` with
+  `stop_reason: "user_abort"` and `ok: false`. No additional envelopes
+  after that. Double-emission is prevented by the existing guard that makes
+  `session_end` the last yield.
+- **Cost accumulation.** `query()` yields token-usage information on every
+  `AssistantMessage` / `ToolResultBlock`. Track a running `total_cost_usd`
+  alongside the phase tracker; emit a `cost_update` envelope no more often
+  than once per 750 ms to avoid flooding the socket. The running value is
+  also copied onto the final `session_end.data.cost_usd`, preserving the
+  current contract for end-of-run cost.
+
+Verification: run Muchlinski, cancel at ~15 s; expect `session_end` with
+`stop_reason="user_abort"`, `ok=false`, and `cost_usd > 0`. Run to completion
+and confirm monotonically non-decreasing `cost_update` values up to the final
+`session_end.cost_usd`.
+
+## Known gaps / corner cases
+
+Findings from the Apr 22 audit pass. Every BLOCKER entry must be fixed
+(or explicitly annotated "won't fix for demo") before the D6 submission.
+
+- **BLOCKER — `raw_text_delta` events promised but never emitted.**
+  Contract lists `raw_text_delta` ([../integration.md:102-107](../integration.md))
+  but `server/agent.py:622-667` extracts `TextBlock`s and parses them
+  without wrapping each delta in an envelope. Breaks the documented
+  "toggle raw text in Tool Stream" debug mode.
+  Fix sketch: after appending to the buffer, emit
+  `{"type": "raw_text_delta", "data": {"text": block.text}}` before
+  running the parser.
+- **BLOCKER — Quick Check `quick_check_verdict` parsed but not yielded.**
+  `parser.py` emits `quick_check_verdict` but `server/agent.py:618-702`
+  never forwards it in check mode, so the happy-path Quick Check returns
+  no verdict.
+  Fix sketch: include it in the set of parser events the orchestrator
+  yields, alongside the investigate-mode events.
+- **BLOCKER — no synthesized `aborted` when SDK stops at `max_turns`.**
+  When the agent fails to write `## Aborted:` and the loop exhausts at
+  `max_turns=30`, no `aborted` envelope fires; contract says the server
+  must synthesize one (`reason="turn_cap"`).
+  Fix sketch: after the SDK loop exits, check `total_turns` and parser
+  state; if terminal and no aborted event was emitted, yield one before
+  the `session_end`.
+- **MAJOR — duplicate `session_end` on exception paths.**
+  `server/agent.py:359-381` emits `session_end` on exception; the
+  `server/main.py` WS handler also wraps the generator and can emit a
+  second one. Contract says `session_end` is always the final event,
+  exactly once.
+  Fix sketch: agent owns `session_end`; the wrapper should only emit one
+  if the generator aborted before yielding anything.
+- **MAJOR — client disconnect leaks the `run_agent` task.**
+  `server/main.py:164-167` logs the disconnect and returns, but the
+  generator task keeps running and burning tokens until the SDK call
+  completes or times out.
+  Fix sketch: wrap the generator in an `asyncio.Task` and `.cancel()` it
+  from the WS disconnect handler.
+- **MAJOR — `assistant_buffer` is O(n)-re-parsed on every delta.**
+  `server/agent.py:611-651` accumulates the full markdown text and
+  re-runs the parser after every text delta. Unbounded in memory; O(n²)
+  in the tail of a verbose 30-turn run.
+  Fix sketch: track a last-parsed offset and parse only the suffix; cap
+  the buffer at ~1 MB and drop the oldest section-safe boundary.
+- **MINOR — `session_context` splicing may re-parse stale section headers.**
+  Prior-run summaries are pasted into the current prompt
+  (`server/agent.py:550, 583-591`). If they include section headers
+  identical to the new run, the parser sees them twice.
+  Fix sketch: sanitize pasted markdown by stripping `^##` prefixes, or
+  fence the context block as code.
+
 ## Open questions / deferred
 
 - Retries on transient SDK errors: not needed at MVP. Let errors propagate; user retries from UI.

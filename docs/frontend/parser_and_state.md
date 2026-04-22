@@ -178,6 +178,48 @@ Part of the full frontend verification in [README.md](README.md#how-to-verify-en
 - **Quick Check events land in the main Tool Stream.** Fix `routeToolCall` run_id routing.
 - **Reducer throws on unknown type.** Must log + return state unchanged, not throw.
 
+## Planned — F2 cost + user_abort reducer entries
+
+Paired with the contract edits in [../integration.md](../integration.md)
+and the backend abort path in [../backend/agent.md](../backend/agent.md):
+
+- New envelope type `cost_update` with `data: { total_usd: number,
+  turns: number }`. Reducer writes to `cost` directly (replacing the
+  current "roll up at session_end" path).
+- `session_end` gains an optional `stop_reason`. A new terminal status
+  `"aborted_by_user"` branches off for `stop_reason === "user_abort"`
+  so the UI can distinguish a user-initiated stop from a turn cap.
+- `AppState.cost` already exists — no shape change, just write path.
+
+## Planned — F5 hypothesis-filter state
+
+Adds `selectedHypothesisId: string | null` to `AppState` plus a new
+action `{ kind: "select_hypothesis"; id: string | null }`. Selectors
+derived:
+
+- `visibleToolCalls(state)` — `toolCalls` filtered so
+  `hypothesis_id === selectedHypothesisId` (or all if null).
+- `visibleDossierSections(state)` — same pattern.
+
+Prereq: confirm that `check`, `tool_call`, and `dossier_section`
+envelopes carry `hypothesis_id` in the contract. If any don't, the
+gap lands in [../integration.md](../integration.md) contract-drift
+section before the state change ships.
+
+## Known gaps / corner cases
+
+- **BLOCKER — JSON.parse failure in WS handler is swallowed.**
+  [web/src/state/chatStore.ts:155-161](../../web/src/state/chatStore.ts#L155-L161)
+  has an empty catch block; malformed events are silently dropped.
+  Fix sketch: log + dispatch an `errors[]` entry so the user at
+  least sees "stream decode failed".
+- **MAJOR — hypothesis dedup by `id` silently keeps stale state.**
+  [web/src/state/runState.ts:164-180](../../web/src/state/runState.ts#L164-L180)
+  early-returns when a hypothesis id re-arrives; a re-emitted
+  `hypothesis` with new `rank` or `name` is ignored.
+  Fix sketch: upsert (merge new fields onto existing) rather than
+  skip.
+
 ## Open questions / deferred
 
 - Persist reducer state across reloads via localStorage: `DEFERRED`.

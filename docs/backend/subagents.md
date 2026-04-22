@@ -118,6 +118,83 @@ Subagent failures surface via `SubagentResult(ok=False, error="...")`. The condu
 - **Benchmark Evaluator** subagent — evaluates the fix against a canonical benchmark slice (for heavier-compute Deep Investigation in the future-vision section).
 - **Per-domain subagent packs** — Medical Imaging Auditor, NLP Auditor, etc. Each plugs in via the same `SubagentResult` interface.
 
+## Planned — Patch Generator subagent (see TASKS D5.X-patchgen)
+
+A read-only subagent that converts a ratified hypothesis + supporting
+findings into a unified diff, without touching the working tree. The
+conductor then applies (or rejects) the diff via the sandbox, which
+keeps fix application auditable and makes retries cheap.
+
+- **Role.** Given `hypothesis_id`, a summary of supporting evidence,
+  and the repo layout, propose the smallest diff that addresses the
+  hypothesis.
+- **Tool allowlist.** `Read`, `Grep`, `Glob`. No `Edit`, `Write`, or
+  `Bash` — the subagent never mutates files or runs code. Prevents
+  half-applied fixes from polluting the sandbox on retry.
+- **Output schema.** Emit exactly one `## Patch:` block:
+  ```
+  ## Patch:
+  hypothesis_id: h1
+  rationale: "Move imputation inside a sklearn Pipeline so fit_transform runs on train only."
+  target_files:
+    - prepare_data.py
+  diff: |
+    ```diff
+    --- a/prepare_data.py
+    +++ b/prepare_data.py
+    @@ ...
+    - imputer.fit(df)
+    + pipeline = Pipeline([("impute", IterativeImputer()), ("rf", RandomForestClassifier())])
+    ...
+    ```
+  ```
+- **Upstream handoff (conductor).** The conductor extracts `diff`,
+  runs `git apply --check` inside the sandbox; on success, `git apply`
+  followed by the re-eval flow. On `--check` failure, the conductor
+  spawns **one** retry round with the error output included as extra
+  context. A second failure surfaces as `## Aborted: reason=patch_invalid`.
+- **Turn budget.** 4 turns, `max_turns=4`. Much lower than Code Auditor
+  because the task is more focused.
+- **Prompt.** Lives at `server/prompts/subagents/patch_generator.md`
+  (see [prompts.md](prompts.md)).
+
+Verification: run Deep Investigation on Muchlinski; after the `## Verdict:`
+block, confirm a `Task` invocation with `agent="patch_generator"`, a
+`## Patch:` block in its result, and a subsequent `git apply` that
+changes `prepare_data.py` with <50 LOC.
+
+## Planned — Metric Extractor subagent (see TASKS D5.X-metric)
+
+A tool-free subagent that normalizes raw eval-script stdout into a
+canonical `MetricResult` struct the dossier can render without free-
+form string parsing.
+
+- **Role.** Consume the stdout of the Experiment Runner's eval, pick
+  out the reported metric(s), and return a typed payload. Handles
+  numbered tables, sklearn `classification_report`, custom `METRIC_JSON:`
+  lines, and one-off prints like `AUC = 0.85`.
+- **Tool allowlist.** None. Pure prompt over text → structured output.
+- **Output schema.** Emit exactly one `## Metric:` block per metric:
+  ```
+  ## Metric:
+  name: "AUC"
+  value: 0.72
+  confidence_interval: [0.68, 0.76]   # optional; null if the eval didn't report one
+  split: "test"                        # "train" | "val" | "test" | "other"
+  context: "RandomForest, Muchlinski fixture, 5-fold CV"
+  ```
+- **Turn budget.** 2 turns, `max_turns=2`.
+- **Contract impact.** The conductor's `metric_delta` event now carries
+  structured `before` / `after` as full `MetricResult` dicts instead of
+  free-form strings. This is a documented contract change (see
+  [../integration.md](../integration.md)).
+- **Prompt.** Lives at `server/prompts/subagents/metric_extractor.md`.
+
+Verification: feed in the Muchlinski broken-baseline stdout; expect
+`AUC` extracted with `value=0.85, split="test"` and the fixed stdout
+yielding `0.72`. Assert `metric_delta` in the resulting event stream
+has both `before` and `after` matching the extracted structs.
+
 ## How to verify (end-to-end)
 
 ### Setup
@@ -136,6 +213,33 @@ Deep Investigation on Muchlinski fixture should produce a transcript that includ
 - At least two `Task`-tool invocations (tool_call events with `name="Task"`)
 - Each `tool_result` for those Tasks contains a `SubagentResult`-shaped payload
 - The conductor reasons explicitly about the subagent findings in its `## Finding` blocks
+
+## Known gaps / corner cases
+
+- **MAJOR — subagent turn budgets don't roll up into conductor's
+  `max_turns=30`.** `server/subagents/code_auditor.py:68` sets its own
+  cap; the conductor can spawn five auditors in parallel and exceed the
+  parent budget.
+  Fix sketch: track cumulative subagent turns in the conductor; refuse
+  new `Task` calls when `parent_used + child_max > parent_budget`.
+- **MAJOR — Experiment Runner uses raw `Bash`.** `allowed_tools=["Bash"]`
+  at `server/subagents/experiment_runner.py:93` means the subagent can
+  run `pip install`, `curl`, or anything else; the prompt-level
+  prohibition is advisory. Fix sketch: swap in a `sandboxed_bash` MCP
+  wrapper that enforces the allowed-commands list at tool boundary.
+- **MINOR — Validator silently drops malformed entries.**
+  `server/subagents/validator.py:179-191` defensively filters entries
+  without the required `label` / `mark` fields; the caller gets a
+  partial report with no warning. Fix sketch: log
+  `"dropped N of M checks due to malformed schema"` when the count
+  mismatches.
+- **MINOR — Venv `python` rewrite is brittle.**
+  `server/subagents/experiment_runner.py:29-48` rewrites only the
+  leading `python` / `python3` token; `bash -c "python foo"` escapes
+  unrewritten. Document the limitation and prefer absolute-path commands.
+- **MINOR — Prompt loading is synchronous disk I/O per invocation.**
+  `server/subagents/base.py:93-103` re-reads the prompt file every
+  call. Cache at module-load time, or use `asyncio.to_thread()`.
 
 ## Open questions / deferred
 

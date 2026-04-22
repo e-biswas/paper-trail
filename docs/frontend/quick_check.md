@@ -191,6 +191,23 @@ Backend running, Muchlinski fixture staged.
 - **Tool-call count never updates.** Reducer must bucket events by `run_id`.
 - **Multiple Quick Checks running → events mingled across cards.** Check reducer's per-run slicing.
 
+## Known gaps / corner cases
+
+- **MAJOR — evidence `file:line` citations render as plain monospace
+  text, not clickable.** Judges can't jump to the cited line from
+  the verdict card. Fix sketch: render each `file:line` as a
+  `<button>` that dispatches a "jump" action; Tool Stream surfaces
+  a matching `Read` card if present, otherwise no-op with a toast.
+- **MAJOR — verdict badges signal by color only.** `confirmed` /
+  `refuted` / `unclear` use emerald / rose / amber with no redundant
+  text or icon, violating colorblind-safe guidance. Spec already
+  lists the icon table; enforce it in the badge component.
+- **MINOR — turn-cap / time-budget not shown in the sidebar.**
+  The card displays elapsed time and cost after completion, but a
+  running Quick Check gives no indication of how close it is to the
+  8-turn cap or the ~60 s budget. Add a small `3/8 turns · 12 s` line
+  while running.
+
 ## Open questions / deferred
 
 - Persist Quick Check history in localStorage across reloads: `DEFERRED`, small cost.

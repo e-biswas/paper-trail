@@ -177,6 +177,33 @@ Muchlinski fixture staged at `/tmp/muchlinski-demo`.
    assert "missing" in r.stdout
    ```
 
+## Known gaps / corner cases
+
+- **BLOCKER — no memory limits on subprocess.**
+  `server/sandbox/local.py:72-132` launches subprocesses with only a
+  wall-clock `timeout_s`. A runaway `pip install torch` (or any big
+  Python import) can OOM a 16 GB M5 laptop before the timeout fires.
+  Fix sketch: attach `resource.setrlimit(RLIMIT_AS, ...)` in a
+  `preexec_fn` on macOS / Linux; treat the RLIMIT failure as
+  `ExecResult(ok=False, returncode=-9, timed_out=False)`.
+- **MAJOR — path confinement defeated by symlink escape.**
+  `server/sandbox/local.py:159` resolves the final path but doesn't
+  reject intermediate symlinks that point outside `workdir`. An
+  attacker who can plant a symlink inside `/tmp/<fixture>-demo/` can
+  write through it.
+  Fix sketch: walk each path component and refuse any symlink whose
+  `readlink()` target escapes `workdir`, or use
+  `os.realpath(follow_symlinks=False)` per component.
+- **MAJOR — process-group kill race on timeout.**
+  `server/sandbox/local.py:216-227` calls `os.getpgid(proc.pid)` after
+  the timeout; the process may have exited, and `os.killpg()` can hit
+  a recycled pgid. Wrap the whole kill block in try/except and document
+  "best-effort kill" semantics.
+- **MINOR — no log-line for truncated outputs.**
+  When `stdout_cap_bytes` fires, `ExecResult.truncated=True` is set but
+  there's no `WARNING` log. During a live demo, silent truncation can
+  mask a real problem.
+
 ## Open questions / deferred
 
 - `E2BSandbox` implementation — deliberately deferred. When the user has a budget, we add it in a follow-up PR.

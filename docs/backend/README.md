@@ -94,6 +94,46 @@ After all modules land:
 6. Real PR URL in `pr_opened.data.url` opens and shows the fix + dossier.
 7. Repeat on `/ws/check` with a canned question; expect exactly one `quick_check_verdict` then `session_end`.
 
+## Known gaps index
+
+Quick index of the Apr 22 audit findings per module. See each module's
+**Known gaps / corner cases** section for severity, file:line, and fix
+sketches.
+
+- [agent.md](agent.md#known-gaps--corner-cases) — `raw_text_delta`
+  never emitted; `quick_check_verdict` orphaned; no synthesized
+  `aborted` on `max_turns`; duplicate `session_end`; disconnect task
+  leak; buffer re-parse cost; `session_context` header collisions.
+- [server.md](server.md#known-gaps--corner-cases) — no stop-frame
+  loop yet; silent send failures; no receive timeout; no heartbeat;
+  handshake leaves sockets in CLOSE_WAIT; CORS/WS origin drift; input
+  size limits; per-run structured logging.
+- [subagents.md](subagents.md#known-gaps--corner-cases) — subagent
+  turn budgets don't roll up; raw `Bash` in Experiment Runner;
+  validator drops malformed entries silently; venv python rewrite
+  is brittle; prompt loading is blocking disk I/O.
+- [sandbox.md](sandbox.md#known-gaps--corner-cases) — no memory
+  limits; symlink escape; process-group kill race; silent truncation.
+- [paper_ingester.md](paper_ingester.md#known-gaps--corner-cases) —
+  cache key doesn't invalidate on arxiv v1→v2; PDF URL not validated;
+  docling cold start blocks concurrent ingest; arxiv ID regex too
+  lenient.
+- [mcp_config.md](mcp_config.md#known-gaps--corner-cases) — silent
+  missing `GITHUB_TOKEN`; PR-fail-after-dossier ambiguity; no MCP
+  subprocess recovery; branch name collision.
+- [prompts.md](prompts.md#known-gaps--corner-cases) — schema not
+  enforced by worked example; Quick Check tool-chain cap advisory;
+  failure-class specificity uneven; validator tone-vs-rigor conflict.
+- [fixtures.md](fixtures.md#known-gaps--corner-cases) — `reset.sh`
+  swallows `gh pr close` errors; init_demo_repos swallows bad-scope
+  force-push failures; token scrubbing not trap-protected;
+  `dev.sh` skips re-stage if `/tmp/*-demo` exists; replay streams
+  hand-authored; ground-truth doesn't pin sklearn/numpy.
+
+Gate-check for D6 submission: every entry tagged **BLOCKER** above
+must either have a fix landed or a deliberate "won't fix for demo"
+annotation (see `TASKS.md D5.0-audit-gaps`).
+
 ## Open questions / deferred
 
 - Replay/cassette mode for testing the frontend without hitting the API. `DEFERRED` to stretch.

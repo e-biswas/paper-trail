@@ -155,6 +155,18 @@ Use `lucide-react` (shadcn's default icon set). Import only the icons you use.
 npm --prefix web run lint        # eslint + tailwind-merge warnings
 ```
 
+## Known gaps / corner cases
+
+- **MINOR — `strictNullChecks` absent from `tsconfig.app.json`
+  despite the frontend convention requiring strict mode.**
+  [web/tsconfig.app.json:18-22](../../web/tsconfig.app.json#L18-L22).
+  Turn on `"strict": true` (or at least `"strictNullChecks": true`);
+  the repo's TS surface is small enough that the fallout is bounded.
+- **MINOR — ESLint not on the commit path.** `package.json` defines
+  `lint` but there's no pre-commit hook that runs it. Add to
+  `dev.sh` checks or to the preflight script (see
+  [../../scripts/README.md](../../scripts/README.md)).
+
 ## Open questions / deferred
 
 - Responsive breakpoint set for mobile: out of MVP scope.

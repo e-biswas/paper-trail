@@ -140,6 +140,49 @@ npm --prefix web run dev
 - **Sidebar obscures main content on smaller screens.** Collapse sidebar to a drawer below 1200px width.
 - **Status bar doesn't update.** Reducer probably not dispatching; check `state.ts`.
 
+## Planned — Abort button + live cost pill
+
+Status-bar additions to support the backend cancel path + cost stream
+(see TASKS D5.X-abort):
+
+- **Abort button.** Enabled only while `status === "running"`. On
+  click, sends `{"type": "stop"}` over the active WS and sets
+  `status = "aborting"`. The button remains disabled until the server
+  emits the terminal `session_end` (with `stop_reason: "user_abort"`),
+  at which point it transitions to a normal `idle`/`aborted` state.
+- **Cost pill.** Small inline chip next to the status dot showing
+  `$0.00` by default; updates live off `cost_update` envelopes (capped
+  at 1 update/sec client-side so the chip doesn't thrash). On run end
+  the value locks to `session_end.data.cost_usd`.
+- **Styling.** Both compact — they should fit in the existing status
+  bar without pushing the mode / model chips off the line. Abort
+  button uses the `status.refuted` rose token; cost pill uses the
+  neutral `muted` token.
+
+## Known gaps / corner cases
+
+- **BLOCKER — WS URL hardcoded to `location.host`, no
+  `VITE_BACKEND_URL` fallback.** [web/src/state/chatStore.ts:96](../../web/src/state/chatStore.ts#L96)
+  prevents pointing the dev frontend at a remote backend.
+- **BLOCKER — no WS reconnect on drop.**
+  [web/src/state/chatStore.ts:179-183](../../web/src/state/chatStore.ts#L179-L183)
+  surfaces a dropped connection as a generic "WebSocket error" with
+  no retry. At minimum, show "Connection lost" with a Retry button;
+  backoff is explicitly deferred (see plan) but the user-visible
+  state must not regress to silent failure.
+- **MAJOR — fixture paths hardcoded.** Primary fixture path +
+  paper URL baked into [App.tsx:9-12](../../web/src/App.tsx#L9-L12)
+  and [InputRow.tsx:143-161](../../web/src/components/chat/InputRow.tsx#L143-L161);
+  no way to switch to backup without editing code. Flagged here
+  because demo act 4 (ISIC generalization beat) depends on the
+  switcher.
+- **MINOR — no distinction between "ran to completion" and
+  "connection dropped".** Both paths close the socket and set a
+  terminal-looking status. The cost pill freeze + a small "disconnected"
+  annotation should differentiate.
+- **MINOR — dark/light toggle mentioned in status bar spec but not
+  implemented.** No urgency; keep deferred.
+
 ## Open questions / deferred
 
 - Run history: `DEFERRED`.

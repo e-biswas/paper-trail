@@ -152,6 +152,32 @@ Running backend + frontend with Muchlinski Deep Investigation.
 - **Long outputs break layout.** Add `overflow-x: auto` on the code block container; truncate anything >10k chars.
 - **Diff tool output unreadable.** Wrap with a proper diff renderer (`react-diff-viewer-continued`).
 
+## Planned — hypothesis-filter integration (F5)
+
+When `state.selectedHypothesisId` is set (see
+[hypothesis_board.md](hypothesis_board.md#planned--click-to-filter-f5)
+and [parser_and_state.md](parser_and_state.md#planned--f5-hypothesis-filter-state)),
+the Tool Stream:
+
+- Renders only cards whose `hypothesis_id === selectedHypothesisId`.
+- Shows a small `× Filtering by: <hypothesis name>` chip at the top
+  that clears the filter on click.
+- Uses `aria-live="polite"` to announce the filter state change.
+
+If the envelope contract does not already carry `hypothesis_id` on
+`tool_call` events, that gap lands in
+[../integration.md](../integration.md) contract-drift first.
+
+## Known gaps / corner cases
+
+- **MAJOR — "No tool calls yet…" placeholder is a dim text line,
+  not a skeleton.** Indistinguishable from a broken pane until the
+  first call streams in. Swap to the loading-skeleton style used in
+  Dossier.
+- **MINOR — no keyboard nav.** `<details>`/`<summary>` is native
+  focusable but the cards themselves aren't reachable; Enter
+  doesn't toggle. Match Hypothesis Board's nav pattern.
+
 ## Open questions / deferred
 
 - "Filter by tool name" dropdown: nice-to-have.

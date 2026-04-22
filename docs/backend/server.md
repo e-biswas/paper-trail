@@ -172,6 +172,63 @@ uv run uvicorn server.main:app --reload --port 8080
 - **Socket accepts then immediately closes.** Usually a schema mismatch in the first frame. Check server logs.
 - **Events arrive slowly then burst.** This is the `include_partial_messages` issue flagged as the main Day-1 risk. Escalate to the agent module.
 
+## Planned — client-initiated stop (see TASKS D5.X-abort)
+
+To support the UI's Abort button, the WS receive loop on both endpoints
+must accept a client-originated `{"type": "stop"}` frame at any point
+after `session_start`. Behavior:
+
+- On `stop`, cancel the `asyncio.Task` holding `run_agent(config)`.
+- The orchestrator (see [agent.md](agent.md)) catches `CancelledError`,
+  flushes the open phase, and emits a terminal `session_end` with
+  `stop_reason: "user_abort"`.
+- The handler wrapper MUST NOT emit a second `session_end` of its own in
+  this path — the orchestrator owns that event.
+
+Implementation shape: replace the single `receive_json()` call at
+handshake time with a small receive loop running concurrently with the
+agent generator. The first frame must still be `start`; any subsequent
+frames are parsed and dispatched (currently only `stop` is defined).
+Unknown client frames are ignored with a warning log.
+
+## Known gaps / corner cases
+
+- **MAJOR — `ws.send_json` failures silently caught; agent keeps running.**
+  `server/main.py:105-109` catches send failures but the `run_agent`
+  generator continues yielding. Orphaned task burns tokens until SDK
+  completion or timeout.
+  Fix sketch: propagate the send error into the generator task via
+  cancel; on next yield the orchestrator sees `CancelledError` and
+  terminates cleanly.
+- **MAJOR — no `asyncio.Task` handle for the generator, so disconnect
+  cannot cancel the run.** Same root cause as the agent-side leak; fix
+  is paired with the cancel-path work for the Abort button.
+- **MINOR — no receive timeout on the initial `start` frame.**
+  `server/main.py:112` blocks forever waiting for the first frame; a
+  hung client can hold a connection slot indefinitely.
+  Fix sketch: wrap the receive in `asyncio.timeout(30)`.
+- **MINOR — no heartbeat / ping-pong on idle connections.**
+  Long Deep-Investigation runs with sparse emissions can be silently
+  terminated by intermediaries. Fix sketch: send a `{"type":"heartbeat"}`
+  envelope every 20 s if nothing else has shipped.
+- **MINOR — handshake errors return without explicit `ws.close()`.**
+  `server/main.py:114-123, 128-134, 155-161` rely on the `finally`
+  block; sockets linger in CLOSE_WAIT. Add an explicit `await ws.close()`
+  after bad-handshake errors.
+- **MINOR — CORS / WS origin check not enforced.** `allow_origins`
+  includes only `http://localhost:5173`, but the WS endpoint does not
+  check `Origin` independently. Fix sketch: reject in `accept` if
+  `ws.headers.get("origin")` is not allowlisted.
+- **MINOR — no size limits on `paper_url` / `repo_path` / `question`.**
+  `RunConfig.from_dict` accepts arbitrary-length strings. A malicious
+  10 MB `question` is expensive and fills logs. Cap to
+  `<= 2048 / 512 / 10_000` chars respectively and reject with
+  `bad_handshake` otherwise.
+- **MINOR — logging doesn't carry `run_id` consistently.** Some log
+  lines have it, most don't; hard to grep post-demo. Fix sketch: wrap
+  the module logger in a `LoggerAdapter` bound to `run_id` for the life
+  of each WS handler.
+
 ## Open questions / deferred
 
 - Auth on WS endpoints: `DEFERRED`. Single-user demo.

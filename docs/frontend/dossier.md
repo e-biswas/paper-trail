@@ -174,6 +174,28 @@ Is an `<a target="_blank" rel="noopener">` styled as a shadcn `<Button>` with ex
 - **Metric delta overflows on long metric names.** Shorten or wrap — e.g., "ROC-AUC (RF)" truncation.
 - **PR link is broken.** Backend sent a relative URL — fix backend to always send absolute.
 
+## Planned — hypothesis-filter integration (F5)
+
+When `state.selectedHypothesisId` is non-null (see
+[hypothesis_board.md](hypothesis_board.md#planned--click-to-filter-f5)):
+
+- Sections whose underlying findings or checks reference only other
+  hypotheses are dimmed, not hidden — the dossier always reads as a
+  complete narrative even under a filter.
+- A small `× Filtering by: <hypothesis name>` chip appears at the top.
+- The PR link and metric delta are always visible regardless of
+  filter state.
+
+## Known gaps / corner cases
+
+- **MAJOR — empty dossier returns `null` so the pane vanishes.**
+  Before any dossier event fires, users see the pane completely
+  disappear. The spec's "Empty state" wireframe above must actually
+  render — ship it as a `<section>` with the waiting text visible.
+- **MINOR — no keyboard nav on section headings.** If sections
+  collapse/expand in a future refactor, headings must be
+  keyboard-toggleable.
+
 ## Open questions / deferred
 
 - "Copy dossier as markdown" button: high value for judges who want to quote from it. Day 5 if time.

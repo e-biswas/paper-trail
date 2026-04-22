@@ -171,6 +171,35 @@ All inputs are URLs — no user code execution here. But:
 - **Pandoc missing → hand-rolled converter output is ugly.** Check by diffing the markdown against a known-good version.
 - **arXiv rate limits.** 1 req/sec per client. Our flow is nowhere near this.
 
+## Known gaps / corner cases
+
+- **MAJOR — cache key doesn't invalidate on arxiv v1 → v2.**
+  `server/papers/cache.py:20-21` uses `sha256(url)[:16]`. An arxiv paper
+  updated from v1 to v2 has the same `abs/<id>` URL, so cache hits
+  return stale content. Fix sketch: include the arxiv API-reported
+  `updated` timestamp (or the PDF `Last-Modified`) in the key; or add
+  a small `cache_version:` prefix that we bump when arxiv responses
+  change format.
+- **MAJOR — PDF URL passed to docling without scheme / size /
+  content-type validation.** `server/papers/ingester.py:87` does
+  `source.lower().endswith(".pdf")` and hands the URL straight to
+  docling. A tiny stub that redirects to a large or non-PDF payload
+  gets executed unchecked. Fix sketch: `HEAD` first, reject unless
+  `Content-Type: application/pdf` and `Content-Length < 50 MB`.
+- **MAJOR — docling cold-start blocks concurrent ingest.**
+  `server/papers/pdf_parser.py:21-32` initializes the converter lazily
+  behind a single lock; the 15 s cold start blocks every concurrent
+  caller. Fix sketch: warm the singleton during server startup (lazy
+  import is fine; pre-convert a 1-page PDF from disk on boot).
+- **MINOR — arxiv ID regex accepts degenerate forms.**
+  `server/papers/arxiv_fetcher.py:30-33` matches `0000.00000` and
+  similar impossible IDs, which then surface as a cryptic arxiv API
+  error. Fix sketch: reject leading-zero IDs and IDs with implausible
+  dates.
+- **MINOR — non-English papers.** docling outputs the native script;
+  the Paper Reader prompt is English-only. Flag in the dossier
+  "Remaining uncertainty" rather than silently producing bad claims.
+
 ## Open questions / deferred
 
 - Math preservation quality in docling output is variable. If the agent needs high-fidelity equations, we may need a post-processing pass using mathpix or similar. `DEFERRED` — MVP's agent reasons about code, not equations.

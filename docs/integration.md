@@ -253,9 +253,118 @@ Pin/title changes take effect immediately — the next `GET /sessions` reflects 
 
 ---
 
+## Planned — abort + cost stream (TASKS D5.X-abort)
+
+**Must update both sides in the same commit as this doc.**
+
+### New client → server message
+
+```jsonc
+{ "type": "stop" }
+```
+
+Sent after `session_start` and before terminal `session_end`. Server
+cancels the in-flight agent task and emits exactly one terminal
+`session_end` with `stop_reason: "user_abort"`. Any events already
+queued for emission may still arrive before the terminal event —
+ordering guarantee is "stop eventually produces session_end, no new
+non-terminal events after the cancel is observed."
+
+Any other client frame after `start` is currently ignored with a
+warning log. Adding new client frames requires updating this doc
+first.
+
+### `session_end.data` extension
+
+Add optional `stop_reason` field:
+
+```jsonc
+{
+  "type": "session_end",
+  "data": {
+    "ok": false,
+    "total_turns": 7,
+    "cost_usd": 1.24,
+    "duration_ms": 42000,
+    "stop_reason": "user_abort" | "turn_cap" | "agent_requested" | "error"
+  }
+}
+```
+
+Absence of `stop_reason` = normal completion (equivalent to `null`).
+
+### New high-level event: `cost_update`
+
+| `type` | Emitted when | `data` shape |
+|---|---|---|
+| `cost_update` | Agent accumulates cost; no more than 1 emission per 750 ms | `{ "total_usd": 1.24, "turns": 7 }` |
+
+- Monotonically non-decreasing within a run.
+- The final value MUST equal `session_end.data.cost_usd`.
+- Frontend routes to the status bar's cost pill (see
+  [frontend/app_shell.md](frontend/app_shell.md)).
+
+## Planned — `metric_delta` structured payload (TASKS D5.X-metric)
+
+The Metric Extractor subagent (see
+[backend/subagents.md](backend/subagents.md#planned--metric-extractor-subagent-see-tasks-d5x-metric))
+produces canonical `MetricResult` dicts. `metric_delta` is upgraded
+so `before` / `after` / (optional) `baseline` each become structured
+values instead of bare numbers:
+
+```jsonc
+{
+  "type": "metric_delta",
+  "data": {
+    "metric": "AUC",
+    "before":   { "value": 0.85, "confidence_interval": [0.82, 0.88], "split": "test", "context": "RF" },
+    "after":    { "value": 0.72, "confidence_interval": [0.68, 0.76], "split": "test", "context": "RF" },
+    "baseline": { "value": 0.74, "split": "test", "context": "LR" },
+    "context":  "RandomForest; Muchlinski conflict onset dataset; 5-fold CV."
+  }
+}
+```
+
+Frontend displays the new CI bars only when present; the legacy flat
+`number` form is still accepted for the transition window.
+
+## Known contract drift
+
+Audit surface as of 2026-04-22. Items here are contract lies the
+code tells — either the contract promises something the code doesn't
+deliver, or the code emits something the contract doesn't describe.
+Each must be fixed (or explicitly annotated in the relevant backend /
+frontend doc).
+
+- **`raw_text_delta` documented but not emitted.** The "Raw events"
+  table lists it, but `server/agent.py` never wraps SDK `TextBlock`
+  deltas in this envelope. See
+  [backend/agent.md](backend/agent.md#known-gaps--corner-cases).
+- **`quick_check_verdict` parsed but not yielded.** Emitted by the
+  parser, not forwarded by the orchestrator. See
+  [backend/agent.md](backend/agent.md#known-gaps--corner-cases).
+- **Duplicate `session_end` on exception paths.** Spec says
+  `session_end` is always the final event, exactly once. Agent +
+  server wrapper can both emit one. See
+  [backend/agent.md](backend/agent.md#known-gaps--corner-cases).
+- **No synthesized `aborted` when `max_turns` is hit silently.** Spec
+  requires the server to emit `aborted` then `session_end` when the
+  Quick Check or investigator run exhausts the cap without emitting
+  `## Aborted` — current code only forwards the agent-written
+  section.
+- **`dossier_section` ordering guarantee is sort-on-receive by the
+  frontend.** Made explicit here so nobody assumes backend-side
+  reordering. Backend emits in the agent's write order; frontend
+  rearranges to canonical sequence.
+- **F5 prereq — verify `hypothesis_id` on `check`, `tool_call`,
+  `dossier_section`.** The planned hypothesis-filter UI (see
+  [frontend/parser_and_state.md](frontend/parser_and_state.md#planned--f5-hypothesis-filter-state))
+  relies on this linkage. If any event type lacks it, the gap lands
+  here and both sides get updated together.
+
 ## Open questions / deferred
 
 - Compression: not needed at MVP scale. Revisit if events get chatty.
 - Auth: none at MVP. Single-process, single-session.
 - Reconnection: not supported at MVP. Client-side reload = new run.
-- Bidirectional mid-stream messages (client cancels mid-run): deferred to post-hackathon.
+- Bidirectional mid-stream messages (client cancels mid-run): **planned** for D5.X-abort (see above).

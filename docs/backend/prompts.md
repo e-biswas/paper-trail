@@ -15,6 +15,8 @@ Three prompt files that define the agent's behavior. The prompts are the **produ
 | `server/prompts/investigator.md` | Deep Investigation operating manual | `/ws/investigate` |
 | `server/prompts/quick_check.md` | Quick Check operating manual | `/ws/check` |
 | `server/prompts/failure_classes.md` | Shared failure taxonomy with grep signatures | Referenced by both prompts via include/concat |
+| `server/prompts/subagents/patch_generator.md` | Planned — Patch Generator subagent (D5.X-patchgen; see [subagents.md](subagents.md)) | Spawned by conductor via `Task` |
+| `server/prompts/subagents/metric_extractor.md` | Planned — Metric Extractor subagent (D5.X-metric; see [subagents.md](subagents.md)) | Spawned by conductor after Experiment Runner returns |
 
 ## Public interface
 
@@ -241,6 +243,33 @@ A structured reference document Claude draws hypotheses from. Each entry:
 - **Agent emits free-form prose instead of `## Section:`.** Prompt is not strict enough — add an explicit "use ONLY these section headers, no others" instruction.
 - **Agent opens a PR too early.** Prompt must require `metric_delta` with `after != before` before PR creation.
 - **Quick Check runs >8 turns.** Quick Check prompt needs a "stop after verdict" instruction reinforced; `max_turns=8` still protects us.
+
+## Known gaps / corner cases
+
+- **BLOCKER — investigator output schema not enforced by example.**
+  `investigator.md` describes the `## Claim:` / `## Hypothesis N:` /
+  `## Dossier — <section>:` vocabulary in prose, but a minor deviation
+  (a missing `claim:` key, an extra leading space) silently drops the
+  section on the parser side. Fix sketch: add one fully worked example
+  with exact indentation at the top of the prompt, plus a line
+  "HEADERS MUST MATCH EXACTLY — the parser keys on them."
+- **MAJOR — `quick_check.md` doesn't forbid tool-call chaining.** The
+  "AT MOST 3 tool calls" rule at line 169 is advisory; the prompt does
+  not prevent a chain of `Read; Grep; Grep; Grep; Read` before the
+  final verdict. Fix sketch: add "You MUST emit your verdict after
+  AT MOST 3 TOTAL tool calls, even if uncertain; if still uncertain,
+  set `verdict: unclear`."
+- **MINOR — `failure_classes.md` taxonomy specificity uneven.** Some
+  classes have concrete grep signatures, others are prose-only. Fix
+  sketch: enforce the per-class skeleton (Symptom / Common in /
+  Signatures / Check / Fix) across all entries, each with 2-3 real
+  examples.
+- **MINOR — Validator prompt tone vs rigor conflict.** The validator
+  is told "fair but rigorous, not adversarial" *and* "emit warn if
+  ambiguous". Without a tiebreaker, the two collapse into "always warn".
+  Fix sketch: add an explicit rule "prefer `warn` over `fail` when
+  evidence is ambiguous; only `fail` on clear negligence in the
+  transcript."
 
 ## Open questions / deferred
 

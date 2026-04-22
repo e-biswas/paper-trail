@@ -140,6 +140,30 @@ Use the replay fixture (stretch) or mock a reducer state via a Storybook story (
 - **Two hypotheses with the same id** (duplicate on `hypothesis` event). Reducer must upsert by id, not append blindly.
 - **Verdict card doesn't stand out enough.** Increase gold glow intensity or enlarge scale.
 
+## Planned — click-to-filter (F5)
+
+Card becomes a click target that toggles
+`state.selectedHypothesisId` (see
+[parser_and_state.md](parser_and_state.md#planned--f5-hypothesis-filter-state)):
+
+- Selected card: persistent `ring-2 ring-status-verdict` outline.
+- Non-selected cards: drop to 60% opacity.
+- Clicking the selected card again clears the filter.
+- Escape key also clears.
+- Downstream: `ToolStream` and `Dossier` read the selection and
+  hide items whose `hypothesis_id` doesn't match. Panes show a
+  small `× clear filter` chip at the top while a filter is active.
+
+## Known gaps / corner cases
+
+- **MAJOR — empty state returns `null` instead of a "waiting…"
+  skeleton.** For 10-20 s after Run, the pane looks broken. Ship
+  three dimmed card skeletons (the "Waiting for hypotheses…" wire
+  in the Layout section above) before any `hypothesis` arrives.
+- **MINOR — no keyboard nav on the cards.** Cards aren't tabbable,
+  Enter does not expand details. Gate ships with F5 so the filter
+  state is reachable via keyboard.
+
 ## Open questions / deferred
 
 - Click a hypothesis card to filter Tool Stream to only its checks: high UX value, Day 5 if time.

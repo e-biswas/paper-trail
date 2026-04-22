@@ -132,6 +132,51 @@ For each of `primary` and `backup`:
 
 - The agent's workflow must not hard-code fixture-specific paths. Verify by running Deep Investigation on both fixtures with the same server binary.
 
+## Acceptance gate for F3 (Patch Generator subagent)
+
+When the Patch Generator subagent lands (see
+[subagents.md](subagents.md#planned--patch-generator-subagent-see-tasks-d5x-patchgen)),
+the acceptance criterion for both fixtures is: a full Deep Investigation
+produces a `## Patch:` block whose diff, when applied via `git apply`,
+leaves the repo in a state byte-identical to the documented hand-fix.
+Metric delta must match the existing targets (Muchlinski RF AUC
+0.85 → 0.72, ISIC AUC drop ~0.05).
+
+## Known gaps / corner cases
+
+- **BLOCKER — `reset.sh` swallows `gh pr close` failures.** Both
+  `demo/primary/reset.sh` and `demo/backup/reset.sh` end the close loop
+  with `2>/dev/null || true`. A leftover open PR from a previous
+  rehearsal is not flagged and the next demo run opens a duplicate.
+  Fix sketch: drop the silencing, check the return code of
+  `gh pr list --state open --json number` first, and parameterize
+  every `gh pr close` with `--repo "$BOT_OWNER/$BOT_REPO"`.
+- **BLOCKER — `scripts/init_demo_repos.sh:52` swallows force-push
+  failures.** A PAT with wrong scope produces a non-zero exit from
+  `git push --force` that only surfaces as a generic stderr line.
+  Fix sketch: check the return code explicitly and print the token's
+  effective scope via `gh auth status` before raising.
+- **MAJOR — `scripts/init_demo_repos.sh:56-57` scrubs the token
+  non-atomically.** The remote URL carries the token between the
+  push and the scrub; kill the script in that window and the token
+  lands in committed `.git/config`. Fix sketch: wrap the push block
+  in `trap 'git -C "$target_dir" remote set-url origin https://github.com/...' EXIT`.
+- **MAJOR — `dev.sh:19-21` skips `stage.sh` if `/tmp/*-demo` exists.**
+  After a rehearsal where the agent applied its fix, the dir exists
+  and `stage.sh` is skipped — the next demo runs against fix-applied
+  state. Fix sketch: `rm -rf /tmp/muchlinski-demo` unconditionally
+  before re-staging, or require `stage.sh` to idempotently reset.
+- **MINOR — test-data replay streams are hand-authored.** No script
+  regenerates them from a canonical agent version, so schema drift
+  can silently invalidate frontend replay tests. Fix sketch: add a
+  `tests/regenerate_replay.py` that runs a Deep Investigation against
+  the primary fixture and writes the emitted events under
+  `test_data/replay/` with the current agent version tagged.
+- **MINOR — ground-truth JSON doesn't pin `sklearn` / `numpy`
+  versions.** Minor dep bumps can shift the broken-baseline metric
+  past the acceptance tolerance. Add `sklearn_version` /
+  `numpy_version` fields and verify as part of `tests/smoke_*`.
+
 ## Open questions / deferred
 
 - Tertiary fixture for the pitch (e.g., a temporal-leakage case): `DEFERRED`; scope-frozen after Day 4.

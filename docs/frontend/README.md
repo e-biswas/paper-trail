@@ -92,6 +92,31 @@ After all modules land:
 7. In the Quick Check sidebar, click a canned chip ("Is imputation fit on train only?"). A verdict card appears within 30s with file:line citations.
 8. Resize the window; all panes remain legible at 1024×768.
 
+## Known gaps index
+
+Quick index of the Apr 22 audit findings per module. See each module's
+**Known gaps / corner cases** section for severity, file:line, and fix
+sketches.
+
+- [parser_and_state.md](parser_and_state.md#known-gaps--corner-cases)
+  — `JSON.parse` silent failure; hypothesis dedup keeps stale state.
+- [app_shell.md](app_shell.md#known-gaps--corner-cases) — WS URL
+  hardcoded; no reconnect; fixture paths hardcoded; no
+  "dropped-vs-ended" distinction; dark/light toggle deferred.
+- [hypothesis_board.md](hypothesis_board.md#known-gaps--corner-cases),
+  [tool_stream.md](tool_stream.md#known-gaps--corner-cases),
+  [dossier.md](dossier.md#known-gaps--corner-cases) — empty states
+  render `null` instead of a waiting skeleton; no keyboard nav.
+- [quick_check.md](quick_check.md#known-gaps--corner-cases) —
+  `file:line` citations not clickable; verdict badges color-only;
+  turn/time cap invisible during runs.
+- [styling.md](styling.md#known-gaps--corner-cases) —
+  `strictNullChecks` off; ESLint not on commit path.
+
+Gate-check for D6 submission: every entry tagged **BLOCKER** above
+must either have a fix landed or a deliberate "won't fix for demo"
+annotation (see `TASKS.md D5.0-audit-gaps`).
+
 ## Open questions / deferred
 
 - Replay mode from saved fixture: `DEFERRED` to stretch, useful for offline UI dev.

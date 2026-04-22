@@ -10,6 +10,7 @@ export type EventType =
   | "error"
   | "aborted"
   | "raw_text_delta"
+  | "cost_update"
   | "tool_call"
   | "tool_result"
   | "claim_summary"
@@ -221,6 +222,12 @@ export interface ValidityReportData {
 
 export interface PhaseStartData { phase: PhaseName }
 export interface PhaseEndData { phase: PhaseName; duration_ms: number }
+
+// ----- Live cost stream -----
+
+export interface CostUpdateData { total_usd: number; turns: number }
+
+export interface RawTextDeltaData { text: string }
 
 // ----- session / run summary (from REST endpoints) -----
 

@@ -7,6 +7,7 @@ import {
   FileSearch,
   ShieldCheck,
   Loader2,
+  Square,
 } from "lucide-react"
 import type { AssistantTurn } from "../../state/chatStore"
 import { MODEL_LABEL, type ModelId, PHASE_LABEL } from "../../types"
@@ -26,6 +27,8 @@ import { cn } from "../../lib/cn"
 interface Props {
   turn: AssistantTurn
   onValidate?: (run_id: string) => void
+  onStop?: () => void
+  onSelectHypothesis?: (run_id: string, hypothesis_id: string | null) => void
 }
 
 const MODE_LABEL: Record<AssistantTurn["mode"], string> = {
@@ -80,7 +83,7 @@ function StatusBadge({ status }: { status: AssistantTurn["run_state"]["status"] 
   return <Badge tone="pending">connecting</Badge>
 }
 
-export function AssistantMessage({ turn, onValidate }: Props) {
+export function AssistantMessage({ turn, onValidate, onStop, onSelectHypothesis }: Props) {
   const s = turn.run_state
   const hypos = s.hypothesisOrder.map((id) => s.hypotheses[id]).filter(Boolean)
   const tools = s.toolCallOrder.map((id) => s.toolCalls[id]).filter(Boolean)
@@ -89,6 +92,26 @@ export function AssistantMessage({ turn, onValidate }: Props) {
     turn.mode === "investigate" &&
     s.status === "success" &&
     (s.verdict != null || s.aborted != null)
+
+  // Live cost: prefer the streamed `cost_update` value during the run (more
+  // accurate than the orchestrator's pre-ResultMessage estimate shown in
+  // `cost_usd`). After `session_end`, both converge.
+  const liveCost = s.status === "running" ? Math.max(s.streamedCost, s.cost_usd) : s.cost_usd
+
+  const selectedHypothesis = s.selectedHypothesisId ? s.hypotheses[s.selectedHypothesisId] : null
+  const filterLabel = selectedHypothesis
+    ? `#${selectedHypothesis.rank} ${selectedHypothesis.name}`
+    : undefined
+
+  function handleSelect(hypothesis_id: string) {
+    if (!s.run_id || !onSelectHypothesis) return
+    onSelectHypothesis(s.run_id, hypothesis_id)
+  }
+
+  function handleClearFilter() {
+    if (!s.run_id || !onSelectHypothesis) return
+    onSelectHypothesis(s.run_id, null)
+  }
 
   return (
     <motion.div
@@ -116,10 +139,31 @@ export function AssistantMessage({ turn, onValidate }: Props) {
           {s.status === "running" && s.currentPhase && (
             <LivePhasePill phase={s.currentPhase} />
           )}
-          {s.status === "running" && s.cost_usd > 0 && (
-            <span className="text-[10px] tabular-nums text-muted-fg">
-              · ${s.cost_usd.toFixed(4)}
-            </span>
+          {s.status === "running" && liveCost > 0 && (
+            <motion.span
+              key={liveCost.toFixed(4)}
+              initial={{ opacity: 0.5 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-card/60 px-1.5 py-0.5 text-[10px] tabular-nums text-muted-fg"
+              title="Live cost (streamed from the agent)"
+            >
+              ${liveCost.toFixed(4)}
+            </motion.span>
+          )}
+          {s.status === "running" && onStop && (
+            <button
+              type="button"
+              onClick={onStop}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md border border-status-refuted/50 bg-status-refuted/10 px-2 py-0.5 text-[10px] font-medium text-status-refuted",
+                "hover:bg-status-refuted/20",
+              )}
+              title="Stop this run — emits session_end with stop_reason=user_abort"
+            >
+              <Square size={10} fill="currentColor" />
+              Abort
+            </button>
           )}
         </div>
 
@@ -189,13 +233,17 @@ export function AssistantMessage({ turn, onValidate }: Props) {
                     Hypotheses
                   </span>
                 }
-                subtitle={`${hypos.length} ranked`}
+                subtitle={`${hypos.length} ranked${s.selectedHypothesisId ? " · 1 selected" : ""}`}
                 badge={
                   s.verdict ? <Badge tone="verdict">🏆 verdict</Badge> : undefined
                 }
                 defaultOpen
               >
-                <HypothesisBoard hypotheses={hypos} />
+                <HypothesisBoard
+                  hypotheses={hypos}
+                  selectedId={s.selectedHypothesisId}
+                  onSelect={onSelectHypothesis ? handleSelect : undefined}
+                />
               </Collapsible>
             )}
 
@@ -203,9 +251,15 @@ export function AssistantMessage({ turn, onValidate }: Props) {
             <Collapsible
               title="Tool activity"
               subtitle={`${tools.length} call${tools.length === 1 ? "" : "s"}`}
-              defaultOpen={false}
+              defaultOpen={Boolean(s.selectedHypothesisId)}
             >
-              <ToolStream toolCalls={tools} />
+              <ToolStream
+                toolCalls={tools}
+                filterHypothesisId={s.selectedHypothesisId}
+                toolCallHypothesisId={s.toolCallHypothesisId}
+                filterLabel={filterLabel}
+                onClearFilter={onSelectHypothesis ? handleClearFilter : undefined}
+              />
             </Collapsible>
 
             {/* Metric deltas */}

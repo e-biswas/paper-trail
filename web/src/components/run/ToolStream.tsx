@@ -1,3 +1,4 @@
+import { Filter, X } from "lucide-react"
 import { Collapsible } from "../ui/Collapsible"
 import { Badge } from "../ui/Badge"
 import type { ToolCallItem } from "../../state/runState"
@@ -5,6 +6,14 @@ import { cn } from "../../lib/cn"
 
 interface Props {
   toolCalls: ToolCallItem[]
+  /** Optional hypothesis-scoped filter. When set, only tool calls correlated
+   *  to this hypothesis (via the last-seen `check` event before them) render. */
+  filterHypothesisId?: string | null
+  /** Per-tool-call hypothesis correlation map built by the reducer. */
+  toolCallHypothesisId?: Record<string, string | null>
+  /** Display label for the filter chip (defaults to the hypothesis id). */
+  filterLabel?: string
+  onClearFilter?: () => void
 }
 
 function shortInput(input: Record<string, unknown>): string {
@@ -21,7 +30,20 @@ function prettyInput(input: Record<string, unknown>): string {
   return JSON.stringify(input, null, 2)
 }
 
-export function ToolStream({ toolCalls }: Props) {
+export function ToolStream({
+  toolCalls,
+  filterHypothesisId,
+  toolCallHypothesisId,
+  filterLabel,
+  onClearFilter,
+}: Props) {
+  const filtering = filterHypothesisId != null
+  const filtered = filtering
+    ? toolCalls.filter(
+        (tc) => (toolCallHypothesisId?.[tc.id] ?? null) === filterHypothesisId,
+      )
+    : toolCalls
+
   if (toolCalls.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-fg">
@@ -29,9 +51,39 @@ export function ToolStream({ toolCalls }: Props) {
       </div>
     )
   }
+
   return (
     <div className="space-y-1.5">
-      {toolCalls.map((tc) => {
+      {filtering && (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-status-checking/40 bg-status-checking/10 px-2 py-1 text-[11px] text-status-checking">
+          <span className="inline-flex items-center gap-1.5">
+            <Filter size={11} />
+            Filtered to {filterLabel ?? filterHypothesisId}
+            <span className="text-muted-fg">
+              · {filtered.length}/{toolCalls.length}
+            </span>
+          </span>
+          {onClearFilter && (
+            <button
+              type="button"
+              onClick={onClearFilter}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-fg hover:bg-accent/40 hover:text-fg"
+              title="Clear hypothesis filter"
+            >
+              <X size={10} />
+              clear
+            </button>
+          )}
+        </div>
+      )}
+
+      {filtering && filtered.length === 0 && (
+        <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-fg">
+          No tool calls attributed to this hypothesis yet.
+        </div>
+      )}
+
+      {filtered.map((tc) => {
         const done = tc.output !== null
         const isErr = tc.is_error
         return (

@@ -9,6 +9,7 @@ import type {
   AbortedData,
   CheckData,
   ClaimSummaryData,
+  CostUpdateData,
   DossierSection,
   DossierSectionData,
   Envelope,
@@ -94,6 +95,8 @@ export interface RunState {
   aborted: AbortedData | null
   errors: ErrorData[]
   cost_usd: number
+  streamedCost: number    // live cost from `cost_update`; ≥ last value, ≤ final cost_usd
+  stopReason: string | null    // from `session_end.stop_reason`
   total_turns: number
   duration_ms: number
   // Phase tracking — feeds both the live "what's happening now" indicator
@@ -108,6 +111,12 @@ export interface RunState {
   validityError: string | null
   // True if this run state was loaded from disk rather than streamed live.
   isReplay: boolean
+  // F5 — hypothesis → tool stream filter. UI-only state set by the chat store.
+  // Tool calls are correlated to a hypothesis via the last-seen `check` event
+  // (backend doesn't carry hypothesis_id on tool_call directly).
+  selectedHypothesisId: string | null
+  toolCallHypothesisId: Record<string, string | null>
+  activeCheckHypothesisId: string | null    // rolling pointer used during reduction
 }
 
 export function emptyRunState(): RunState {
@@ -133,6 +142,8 @@ export function emptyRunState(): RunState {
     aborted: null,
     errors: [],
     cost_usd: 0,
+    streamedCost: 0,
+    stopReason: null,
     total_turns: 0,
     duration_ms: 0,
     phaseTimings: {},
@@ -143,6 +154,9 @@ export function emptyRunState(): RunState {
     validityReport: null,
     validityError: null,
     isReplay: false,
+    selectedHypothesisId: null,
+    toolCallHypothesisId: {},
+    activeCheckHypothesisId: null,
   }
 }
 
@@ -205,6 +219,10 @@ export function applyEnvelope(state: RunState, env: Envelope): RunState {
         ...state,
         checks: { ...state.checks, [d.id]: d },
         checkOrder: [...state.checkOrder, d.id],
+        // Rolling pointer: tool calls that arrive after this check (until the
+        // next check fires) are attributed to the same hypothesis, so the
+        // F5 filter can link the Hypothesis Board to the Tool Stream.
+        activeCheckHypothesisId: d.hypothesis_id || state.activeCheckHypothesisId,
         hypotheses: hy
           ? {
               ...state.hypotheses,
@@ -282,6 +300,10 @@ export function applyEnvelope(state: RunState, env: Envelope): RunState {
           },
         },
         toolCallOrder: [...state.toolCallOrder, d.id],
+        toolCallHypothesisId: {
+          ...state.toolCallHypothesisId,
+          [d.id]: state.activeCheckHypothesisId,
+        },
       }
     }
 
@@ -329,6 +351,14 @@ export function applyEnvelope(state: RunState, env: Envelope): RunState {
     case "aborted":
       return { ...state, aborted: env.data as AbortedData, status: "aborted" }
 
+    case "cost_update": {
+      const d = env.data as CostUpdateData
+      // Contract says monotone non-decreasing; be defensive against stale
+      // out-of-order frames.
+      const next = Math.max(state.streamedCost, d.total_usd)
+      return { ...state, streamedCost: next }
+    }
+
     case "error": {
       const d = env.data as ErrorData
       return { ...state, errors: [...state.errors, d], status: "error" }
@@ -348,6 +378,8 @@ export function applyEnvelope(state: RunState, env: Envelope): RunState {
         ...state,
         status: nextStatus,
         cost_usd: d.cost_usd,
+        streamedCost: Math.max(state.streamedCost, d.cost_usd),
+        stopReason: d.stop_reason ?? state.stopReason,
         total_turns: d.total_turns,
         duration_ms: d.duration_ms,
         currentPhase: null,

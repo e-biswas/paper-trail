@@ -152,21 +152,26 @@ Running backend + frontend with Muchlinski Deep Investigation.
 - **Long outputs break layout.** Add `overflow-x: auto` on the code block container; truncate anything >10k chars.
 - **Diff tool output unreadable.** Wrap with a proper diff renderer (`react-diff-viewer-continued`).
 
-## Planned — hypothesis-filter integration (F5)
+## Hypothesis-filter integration (DONE — TASKS D5.X-hypfilter)
 
 When `state.selectedHypothesisId` is set (see
-[hypothesis_board.md](hypothesis_board.md#planned--click-to-filter-f5)
-and [parser_and_state.md](parser_and_state.md#planned--f5-hypothesis-filter-state)),
+[hypothesis_board.md](hypothesis_board.md#click-to-filter-done--tasks-d5x-hypfilter)
+and [parser_and_state.md](parser_and_state.md#f5-hypothesis-filter-state-done--tasks-d5x-hypfilter)),
 the Tool Stream:
 
-- Renders only cards whose `hypothesis_id === selectedHypothesisId`.
-- Shows a small `× Filtering by: <hypothesis name>` chip at the top
-  that clears the filter on click.
-- Uses `aria-live="polite"` to announce the filter state change.
+- Renders only tool calls whose client-side
+  `toolCallHypothesisId[id] === selectedHypothesisId`.
+- Shows a `× clear` chip at the top with a running `k/n` count and the
+  selected hypothesis's rank + name.
+- Renders an empty-filter hint ("No tool calls attributed to this
+  hypothesis yet.") instead of hiding the entire pane when no calls
+  match — useful during the early phase where the agent is still
+  exploring before a `check` fires.
 
-If the envelope contract does not already carry `hypothesis_id` on
-`tool_call` events, that gap lands in
-[../integration.md](../integration.md) contract-drift first.
+The correlation is derived in the reducer from the rolling
+`activeCheckHypothesisId` pointer (last-seen `check` event) — no
+contract change to `tool_call` on the wire. See
+[../integration.md](../integration.md#known-contract-drift).
 
 ## Known gaps / corner cases
 

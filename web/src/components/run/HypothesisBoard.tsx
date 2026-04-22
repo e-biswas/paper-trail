@@ -5,6 +5,8 @@ import { cn } from "../../lib/cn"
 
 interface Props {
   hypotheses: HypothesisItem[]
+  selectedId?: string | null
+  onSelect?: (id: string) => void
 }
 
 const STATUS_BORDER: Record<HypothesisItem["status"], string> = {
@@ -31,25 +33,46 @@ function StatusIcon({ status }: { status: HypothesisItem["status"] }) {
   return null
 }
 
-export function HypothesisBoard({ hypotheses }: Props) {
+export function HypothesisBoard({ hypotheses, selectedId, onSelect }: Props) {
   if (hypotheses.length === 0) return null
+  const hasSelection = selectedId != null
+  const clickable = typeof onSelect === "function"
 
   return (
     <div className="space-y-2">
       {hypotheses.map((h) => {
         const pct = Math.round(h.confidence * 100)
+        const isSelected = selectedId === h.id
+        const dimmed = hasSelection && !isSelected
         return (
           <motion.div
             key={h.id}
             layout
             initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={{ opacity: dimmed ? 0.45 : 1, y: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             className={cn(
-              "rounded-md border bg-card/60 border-border border-l-4 px-3 py-2",
+              "rounded-md border bg-card/60 border-border border-l-4 px-3 py-2 transition",
               STATUS_BORDER[h.status],
               h.status === "verdict" && "ring-1 ring-status-verdict/40 animate-verdict-glow",
+              isSelected && "ring-2 ring-status-checking/70",
+              clickable && "cursor-pointer hover:bg-card/80",
             )}
+            role={clickable ? "button" : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            aria-pressed={clickable ? isSelected : undefined}
+            onClick={clickable ? () => onSelect?.(h.id) : undefined}
+            onKeyDown={
+              clickable
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      onSelect?.(h.id)
+                    }
+                  }
+                : undefined
+            }
+            title={clickable ? (isSelected ? "Click to clear filter" : "Click to filter Tool Stream to this hypothesis") : undefined}
           >
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-fg tabular-nums">#{h.rank}</span>

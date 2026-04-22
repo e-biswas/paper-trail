@@ -140,19 +140,20 @@ Use the replay fixture (stretch) or mock a reducer state via a Storybook story (
 - **Two hypotheses with the same id** (duplicate on `hypothesis` event). Reducer must upsert by id, not append blindly.
 - **Verdict card doesn't stand out enough.** Increase gold glow intensity or enlarge scale.
 
-## Planned — click-to-filter (F5)
+## Click-to-filter (DONE — TASKS D5.X-hypfilter)
 
-Card becomes a click target that toggles
+Card is a click target that toggles
 `state.selectedHypothesisId` (see
-[parser_and_state.md](parser_and_state.md#planned--f5-hypothesis-filter-state)):
+[parser_and_state.md](parser_and_state.md#f5-hypothesis-filter-state-done--tasks-d5x-hypfilter)):
 
-- Selected card: persistent `ring-2 ring-status-verdict` outline.
-- Non-selected cards: drop to 60% opacity.
-- Clicking the selected card again clears the filter.
-- Escape key also clears.
-- Downstream: `ToolStream` and `Dossier` read the selection and
-  hide items whose `hypothesis_id` doesn't match. Panes show a
-  small `× clear filter` chip at the top while a filter is active.
+- Selected card: `ring-2 ring-status-checking/70`.
+- Non-selected cards: drop to 45% opacity while a selection is active.
+- Clicking the selected card again clears the filter; Enter / Space
+  on a focused card toggles it for keyboard users.
+- Downstream: the Tool Stream reads the selection + per-tool-call
+  correlation map and hides unrelated calls behind a `× clear`
+  chip. Dossier stays unfiltered — it describes the run as a whole,
+  not individual hypotheses.
 
 ## Known gaps / corner cases
 

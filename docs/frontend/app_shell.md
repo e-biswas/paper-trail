@@ -140,24 +140,26 @@ npm --prefix web run dev
 - **Sidebar obscures main content on smaller screens.** Collapse sidebar to a drawer below 1200px width.
 - **Status bar doesn't update.** Reducer probably not dispatching; check `state.ts`.
 
-## Planned — Abort button + live cost pill
+## Abort button + live cost pill (DONE — TASKS D5.X-abort-frontend)
 
-Status-bar additions to support the backend cancel path + cost stream
-(see TASKS D5.X-abort):
+The chat-reframe architecture moved the live status controls off a
+separate status bar and into each assistant message's header row (next
+to the mode / model / status badge). The behaviour matches the original
+spec:
 
-- **Abort button.** Enabled only while `status === "running"`. On
-  click, sends `{"type": "stop"}` over the active WS and sets
-  `status = "aborting"`. The button remains disabled until the server
-  emits the terminal `session_end` (with `stop_reason: "user_abort"`),
-  at which point it transitions to a normal `idle`/`aborted` state.
-- **Cost pill.** Small inline chip next to the status dot showing
-  `$0.00` by default; updates live off `cost_update` envelopes (capped
-  at 1 update/sec client-side so the chip doesn't thrash). On run end
-  the value locks to `session_end.data.cost_usd`.
-- **Styling.** Both compact — they should fit in the existing status
-  bar without pushing the mode / model chips off the line. Abort
-  button uses the `status.refuted` rose token; cost pill uses the
-  neutral `muted` token.
+- **Abort button.** `AssistantMessage.tsx` renders a compact `◼ Abort`
+  pill whenever `status === "running"` and the parent supplies an
+  `onStop` callback. Clicking calls `chatStore.stopRun()`, which sends
+  `{"type":"stop"}` over the live WebSocket. Backend cancels the agent
+  task and emits a terminal `session_end` with `stop_reason:
+  "user_abort"`; the existing `ABORT_REASON_LABEL` map supplies the
+  human-readable copy. Uses the `status.refuted` rose token.
+- **Cost pill.** Small chip rendered next to the status badge showing
+  `$x.xxxx` during the run. Value = `max(streamedCost, cost_usd)` where
+  `streamedCost` is updated by the `cost_update` reducer (rate-limited
+  on the backend to ≥750 ms). Pulses via a framer-motion key-swap on
+  each new total. After `session_end`, converges to
+  `session_end.cost_usd`.
 
 ## Known gaps / corner cases
 

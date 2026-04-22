@@ -178,33 +178,45 @@ Part of the full frontend verification in [README.md](README.md#how-to-verify-en
 - **Quick Check events land in the main Tool Stream.** Fix `routeToolCall` run_id routing.
 - **Reducer throws on unknown type.** Must log + return state unchanged, not throw.
 
-## Planned — F2 cost + user_abort reducer entries
+## F2 cost + user_abort reducer entries (DONE — TASKS D5.X-abort-frontend)
 
 Paired with the contract edits in [../integration.md](../integration.md)
 and the backend abort path in [../backend/agent.md](../backend/agent.md):
 
-- New envelope type `cost_update` with `data: { total_usd: number,
-  turns: number }`. Reducer writes to `cost` directly (replacing the
-  current "roll up at session_end" path).
-- `session_end` gains an optional `stop_reason`. A new terminal status
-  `"aborted_by_user"` branches off for `stop_reason === "user_abort"`
-  so the UI can distinguish a user-initiated stop from a turn cap.
-- `AppState.cost` already exists — no shape change, just write path.
+- `cost_update` → reducer writes `streamedCost = max(state.streamedCost,
+  d.total_usd)` (defensive against out-of-order frames). `AssistantMessage`
+  renders a pulsing pill using `max(streamedCost, cost_usd)` during the
+  run, and falls back to `cost_usd` once `session_end` arrives.
+- `session_end.data.stop_reason` lands in `state.stopReason`. The
+  existing `"aborted"` status branch already covers user-initiated stops —
+  `ABORT_REASON_LABEL["user_abort"]` in `AssistantMessage.tsx` supplies
+  the human-readable copy.
+- `chatStore.stopRun()` sends `{"type":"stop"}` on the live WebSocket;
+  `AssistantMessage` surfaces an "Abort" button (inline, next to the
+  status badge) whenever `status === "running"` and an `onStop` callback
+  is supplied by the parent.
 
-## Planned — F5 hypothesis-filter state
+## F5 hypothesis-filter state (DONE — TASKS D5.X-hypfilter)
 
-Adds `selectedHypothesisId: string | null` to `AppState` plus a new
-action `{ kind: "select_hypothesis"; id: string | null }`. Selectors
-derived:
+Per-run state:
 
-- `visibleToolCalls(state)` — `toolCalls` filtered so
-  `hypothesis_id === selectedHypothesisId` (or all if null).
-- `visibleDossierSections(state)` — same pattern.
+- `selectedHypothesisId: string | null` — toggled by
+  `chatStore.setSelectedHypothesis(run_id, id)`. Clicking the same card
+  twice clears the filter.
+- `toolCallHypothesisId: Record<tool_call_id, hypothesis_id | null>` —
+  built inside the reducer via a rolling `activeCheckHypothesisId`
+  pointer: every `check` envelope updates the pointer, every subsequent
+  `tool_call` inherits it (until the next `check` fires). This lets us
+  skip a contract change — `tool_call` does not need to carry
+  `hypothesis_id` on the wire.
 
-Prereq: confirm that `check`, `tool_call`, and `dossier_section`
-envelopes carry `hypothesis_id` in the contract. If any don't, the
-gap lands in [../integration.md](../integration.md) contract-drift
-section before the state change ships.
+Hypothesis Board propagates `selectedId` + `onSelect` into
+[HypothesisBoard.tsx](../../web/src/components/run/HypothesisBoard.tsx).
+Tool Stream propagates `filterHypothesisId` +
+`toolCallHypothesisId` + an `onClearFilter` chip into
+[ToolStream.tsx](../../web/src/components/run/ToolStream.tsx). Dossier
+stays hypothesis-agnostic — the five canonical sections describe the
+run as a whole, so a hypothesis filter is a category error there.
 
 ## Known gaps / corner cases
 

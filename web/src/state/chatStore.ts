@@ -41,9 +41,11 @@ export interface ChatStore {
   isRunning: boolean
   error: string | null
   startRun: (input: StartRunInput) => void
+  stopRun: () => void
   newSession: () => void
   loadSession: (session_id: string) => Promise<void>
   validateRun: (run_id: string) => Promise<void>
+  setSelectedHypothesis: (run_id: string, hypothesis_id: string | null) => void
 }
 
 
@@ -85,6 +87,18 @@ export function useChatStore(): ChatStore {
     setSessionId(fresh)
     setTurns([])
     setError(null)
+  }
+
+  /** Send a `stop` frame on the live WebSocket. Backend cancels the agent
+   * task and emits a terminal `session_end` with `stop_reason: "user_abort"`. */
+  function stopRun() {
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    try {
+      ws.send(JSON.stringify({ type: "stop" }))
+    } catch (err) {
+      console.warn("stop frame send failed", err)
+    }
   }
 
   function startRun(input: StartRunInput) {
@@ -341,14 +355,24 @@ export function useChatStore(): ChatStore {
     }
   }
 
+  function setSelectedHypothesis(run_id: string, hypothesis_id: string | null) {
+    _patchTurn(run_id, (s) => ({
+      ...s,
+      // Clicking the same card twice clears the filter.
+      selectedHypothesisId: s.selectedHypothesisId === hypothesis_id ? null : hypothesis_id,
+    }))
+  }
+
   return {
     turns,
     sessionId,
     isRunning,
     error,
     startRun,
+    stopRun,
     newSession,
     loadSession,
     validateRun,
+    setSelectedHypothesis,
   }
 }

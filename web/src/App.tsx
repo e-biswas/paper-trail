@@ -99,6 +99,8 @@ export default function App() {
                       key={t.id}
                       turn={t}
                       onValidate={store.validateRun}
+                      onStop={store.isRunning ? store.stopRun : undefined}
+                      onSelectHypothesis={store.setSelectedHypothesis}
                     />
                   ),
                 )}

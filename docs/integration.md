@@ -357,11 +357,15 @@ frontend doc).
   frontend.** Made explicit here so nobody assumes backend-side
   reordering. Backend emits in the agent's write order; frontend
   rearranges to canonical sequence.
-- **F5 prereq — verify `hypothesis_id` on `check`, `tool_call`,
-  `dossier_section`.** The planned hypothesis-filter UI (see
-  [frontend/parser_and_state.md](frontend/parser_and_state.md#planned--f5-hypothesis-filter-state))
-  relies on this linkage. If any event type lacks it, the gap lands
-  here and both sides get updated together.
+- **F5 — hypothesis linkage is done client-side.** `check` already
+  carries `hypothesis_id`; `tool_call` does not. Rather than extending
+  the contract, the frontend reducer maintains a rolling
+  `activeCheckHypothesisId` pointer (last-seen `check`) and
+  tags each subsequent `tool_call` into a per-run
+  `toolCallHypothesisId: Record<tool_call.id, hypothesis_id | null>`.
+  `dossier_section` remains hypothesis-agnostic by design (five
+  canonical sections describe the run as a whole, not individual
+  hypotheses) — the filter chip lives in the Tool Stream only.
 
 ## Open questions / deferred
 

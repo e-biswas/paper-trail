@@ -26,8 +26,8 @@ Backend exposes two WebSocket endpoints. Both share the envelope format; the eve
 
 | Endpoint | Mode | Turn cap | Typical duration |
 |---|---|---|---|
-| `ws://localhost:8080/ws/investigate` | Deep Investigation | 30 | 2–5 min |
-| `ws://localhost:8080/ws/check` | Quick Check | 8 | 10–60 s |
+| `ws://localhost:8080/ws/investigate` | Deep Investigation | 50 | 2–5 min |
+| `ws://localhost:8080/ws/check` | Quick Check | 15 | 10–60 s |
 
 ---
 
@@ -347,11 +347,12 @@ frontend doc).
   `session_end` is always the final event, exactly once. Agent +
   server wrapper can both emit one. See
   [backend/agent.md](backend/agent.md#known-gaps--corner-cases).
-- **No synthesized `aborted` when `max_turns` is hit silently.** Spec
-  requires the server to emit `aborted` then `session_end` when the
-  Quick Check or investigator run exhausts the cap without emitting
-  `## Aborted` — current code only forwards the agent-written
-  section.
+- **DONE — synthesized `aborted` when `max_turns` is hit silently.**
+  When the Quick Check or investigator run exhausts the cap without
+  a verdict, the server emits an `aborted` envelope with
+  `reason="turn_cap"` and a descriptive `detail`, followed by
+  `session_end` carrying `stop_reason="turn_cap"` and `ok=false`.
+  Budgets: investigate = 50, check = 15.
 - **`dossier_section` ordering guarantee is sort-on-receive by the
   frontend.** Made explicit here so nobody assumes backend-side
   reordering. Backend emits in the agent's write order; frontend

@@ -87,7 +87,7 @@ Expanded:
 ### List behavior
 
 - Newest tool call at the **top** (so the user sees activity without scrolling).
-- Virtualized if >50 items (Tool Stream can get long during 30-turn runs).
+- Virtualized if >50 items (Tool Stream can get long during 50-turn runs).
 - Autoscroll to newest only if the user hasn't manually scrolled.
 
 ### Tool-specific renderers

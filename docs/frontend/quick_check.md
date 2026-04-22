@@ -205,7 +205,7 @@ Backend running, Muchlinski fixture staged.
 - **MINOR — turn-cap / time-budget not shown in the sidebar.**
   The card displays elapsed time and cost after completion, but a
   running Quick Check gives no indication of how close it is to the
-  8-turn cap or the ~60 s budget. Add a small `3/8 turns · 12 s` line
+  15-turn cap or the ~60 s budget. Add a small `3/15 turns · 12 s` line
   while running.
 
 ## Open questions / deferred

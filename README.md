@@ -29,7 +29,7 @@ Above the footer, a **phase timeline** shows where the wall-clock time went (*pa
 
 ### Quick Check
 
-A bounded agent pass (≤8 turns, ≤60 s, ≤$1). Type a question, get a **`confirmed` / `refuted` / `unclear`** verdict with file:line citations. Three prefilled suggestion chips cover the most common research-engineer questions; free text supported.
+A bounded agent pass (≤15 turns, ≤60 s, ≤$1). Type a question, get a **`confirmed` / `refuted` / `unclear`** verdict with file:line citations. Three prefilled suggestion chips cover the most common research-engineer questions; free text supported.
 
 ### Validator — second-opinion pass
 

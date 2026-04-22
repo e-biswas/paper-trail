@@ -34,7 +34,10 @@ log = logging.getLogger(__name__)
 Mode = Literal["investigate", "check"]
 
 # Turn budgets per mode (see CLAUDE.md "Token / cost budgets").
-TURN_BUDGETS: dict[Mode, int] = {"investigate": 30, "check": 8}
+# Headroom-first: the conductor + 4 subagents need elbow room for the
+# ratify/patch/retry flow; Quick Check needs enough steps for a two-round
+# grep when the first pass misses the right file.
+TURN_BUDGETS: dict[Mode, int] = {"investigate": 50, "check": 15}
 
 # Cost ceilings. Set generously; caller can override via RunConfig.extras.
 DEFAULT_BUDGETS_USD: dict[Mode, float] = {"investigate": 5.00, "check": 1.00}

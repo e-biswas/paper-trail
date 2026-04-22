@@ -242,7 +242,7 @@ A structured reference document Claude draws hypotheses from. Each entry:
 
 - **Agent emits free-form prose instead of `## Section:`.** Prompt is not strict enough — add an explicit "use ONLY these section headers, no others" instruction.
 - **Agent opens a PR too early.** Prompt must require `metric_delta` with `after != before` before PR creation.
-- **Quick Check runs >8 turns.** Quick Check prompt needs a "stop after verdict" instruction reinforced; `max_turns=8` still protects us.
+- **Quick Check runs >15 turns.** Quick Check prompt needs a "stop after verdict" instruction reinforced; `max_turns=15` still protects us, and the orchestrator synthesizes an `aborted` envelope (`reason: "turn_cap"`) if the cap trips silently.
 
 ## Known gaps / corner cases
 

@@ -100,8 +100,8 @@ async def _run_one(case: dict) -> tuple[bool, float, float]:
         f"notes='{notes[:80]}…'",
     )
     passed &= _ok(
-        "turn cap respected (≤ 8 tool calls)",
-        tool_calls <= 8,
+        "turn cap respected (≤ 15 tool calls)",
+        tool_calls <= 15,
         f"{tool_calls} tool calls",
     )
     passed &= _ok(

@@ -74,8 +74,8 @@ Every outbound WebSocket message MUST match the envelope in [../integration.md](
 
 ### Cost discipline
 
-- Deep Investigation: `max_turns=30`, target ≤ $5 per run.
-- Quick Check: `max_turns=8`, target ≤ $1 per run.
+- Deep Investigation: `max_turns=50`, target ≤ $5 per run.
+- Quick Check: `max_turns=15`, target ≤ $1 per run.
 - Every `session_end` event MUST include `cost_usd` and `total_turns` for budget tracking.
 
 ### Testing philosophy (per CLAUDE.md working rule #1)

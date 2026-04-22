@@ -48,7 +48,7 @@ Senior engineers spend their time formulating the question. Juniors spend theirs
 
 One chat UI. One composer at the bottom, in the style Claude Code users already know. Paste a repo. Pick a mode. Send.
 
-**Quick Check — the daily-use verification intern.** ≤8 turns, ≤60 seconds, ≤$1. Type a question, get a `confirmed` / `refuted` / `unclear` verdict with file:line evidence. This is what researchers reach for *instead of* bothering a teammate.
+**Quick Check — the daily-use verification intern.** ≤15 turns, ≤60 seconds, ≤$1. Type a question, get a `confirmed` / `refuted` / `unclear` verdict with file:line evidence. This is what researchers reach for *instead of* bothering a teammate.
 
 **Deep Investigation — the scientific debugger.** A full agent loop: generate ranked hypotheses → run discriminating checks via tool use → converge on a root cause → write the minimal fix → re-run the eval → open a real GitHub PR whose body *is* the audit dossier. Every step streams into the UI as it happens. The agent shows its work.
 

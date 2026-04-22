@@ -126,11 +126,11 @@ paper-trail/
 
 | Operation | Budget | Hard cap in code |
 |---|---|---|
-| One Deep Investigation run | ≤ $5 | `max_turns=30` |
-| One Quick Check | ≤ $1 | `max_turns=8`, target ≤60s wall-clock |
+| One Deep Investigation run | ≤ $5 | `max_turns=50` |
+| One Quick Check | ≤ $1 | `max_turns=15`, target ≤60s wall-clock |
 | Daily demo rehearsal | ≤ $30 | — |
 
-If a run exceeds its turn cap, the agent must emit a `## Aborted` section with reason. The frontend renders this distinctly.
+If a run hits its turn cap without reaching a verdict, the orchestrator synthesizes an `aborted` envelope with `reason: "turn_cap"` and a `session_end` with `stop_reason: "turn_cap"` (see [docs/integration.md](docs/integration.md)). The frontend's `AssistantMessage` renders this as an amber "Aborted" banner with the reason + detail, and the status pill flips to "aborted".
 
 ---
 

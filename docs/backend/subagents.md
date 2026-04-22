@@ -107,7 +107,7 @@ Each subagent ends its output with a fenced YAML block (or similar structured fo
 
 ### Cost budgets
 
-Conductor + subagents share the Deep Investigation budget of 30 turns / $5. A typical run: conductor uses ~10 turns, spawns 2–3 Code Auditor subagents (4 turns each = 12), 1 Experiment Runner (2 turns), 1 Paper Reader (2 turns) = ~26 turns total. Some headroom.
+Conductor + subagents share the Deep Investigation budget of 50 turns / $5. A typical run: conductor uses ~12 turns, spawns 2–3 Code Auditor subagents (4 turns each = 12), 1 Experiment Runner (2 turns), 1 Paper Reader (2 turns), 1 Patch Generator (4 turns), 1 Metric Extractor (2 turns) = ~34 turns total. Room for a ratify/retry round on the fix.
 
 ### Error handling
 
@@ -217,7 +217,7 @@ Deep Investigation on Muchlinski fixture should produce a transcript that includ
 ## Known gaps / corner cases
 
 - **MAJOR — subagent turn budgets don't roll up into conductor's
-  `max_turns=30`.** `server/subagents/code_auditor.py:68` sets its own
+  `max_turns=50`.** `server/subagents/code_auditor.py:68` sets its own
   cap; the conductor can spawn five auditors in parallel and exceed the
   parent budget.
   Fix sketch: track cumulative subagent turns in the conductor; refuse

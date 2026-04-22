@@ -33,6 +33,20 @@ const MODE_LABEL: Record<AssistantTurn["mode"], string> = {
   check: "Quick Check",
 }
 
+// Raw `aborted.reason` codes emitted by the backend → human-readable label
+// for the amber "Aborted" banner. Keep the raw code visible in small text
+// alongside so the UI stays forensics-friendly for power users.
+const ABORT_REASON_LABEL: Record<string, string> = {
+  turn_cap: "Ran out of turn budget before reaching a verdict",
+  no_metric_delta: "The fix didn't change the metric — not declaring success",
+  agent_requested: "Agent requested to stop",
+  patch_invalid: "Proposed patch didn't apply cleanly",
+  error: "Stopped due to an error",
+  user_abort: "You stopped this run",
+  cancelled: "Run was cancelled",
+  source_exhausted_without_end: "Run ended without a final result",
+}
+
 function LivePhasePill({ phase }: { phase: string }) {
   const label = PHASE_LABEL[phase as keyof typeof PHASE_LABEL] ?? phase
   return (
@@ -126,9 +140,27 @@ export function AssistantMessage({ turn, onValidate }: Props) {
         {/* Aborted */}
         {s.aborted && (
           <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
-            <span className="font-semibold text-amber-400">Aborted:</span>{" "}
-            {s.aborted.reason}
-            {s.aborted.detail && <div className="mt-1 text-xs text-muted-fg">{s.aborted.detail}</div>}
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-amber-400">Aborted</span>
+              <span className="rounded-sm bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] text-amber-300">
+                {s.aborted.reason}
+              </span>
+            </div>
+            <div className="mt-1 text-fg">
+              {ABORT_REASON_LABEL[s.aborted.reason] ?? s.aborted.reason}
+            </div>
+            {s.aborted.detail && (
+              <div className="mt-1 text-xs text-muted-fg">{s.aborted.detail}</div>
+            )}
+            {s.aborted.reason === "turn_cap" && (
+              <div className="mt-2 text-xs text-muted-fg">
+                Tip: re-run as a narrower Quick Check, or raise the budget via
+                <code className="mx-1 rounded bg-muted/40 px-1 font-mono text-[10px]">
+                  max_budget_usd
+                </code>
+                in the advanced config.
+              </div>
+            )}
           </div>
         )}
 

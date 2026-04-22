@@ -49,12 +49,12 @@ const MODE_META: Record<
   check: {
     label: "Quick Check",
     icon: CircleHelp,
-    tagline: "≤8 turns · ≤$1 · no PR",
+    tagline: "≤15 turns · ≤$1 · no PR",
   },
   investigate: {
     label: "Deep Investigation",
     icon: Telescope,
-    tagline: "≤30 turns · ≤$5 · opens real PR when slug set",
+    tagline: "≤50 turns · ≤$5 · opens real PR when slug set",
   },
 }
 

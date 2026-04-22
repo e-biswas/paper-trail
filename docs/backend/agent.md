@@ -68,7 +68,7 @@ options = ClaudeAgentOptions(
     allowed_tools=["Read", "Write", "Edit", "Bash", "Glob", "Grep", "WebFetch"],
     mcp_servers=build_mcp_servers(),           # github MCP; see mcp_config.md
     cwd=config.repo_path,                       # agent operates inside the cloned repo
-    max_turns=30 if config.mode == "investigate" else 8,
+    max_turns=50 if config.mode == "investigate" else 15,
     include_partial_messages=True,             # fine-grained streaming
     # NO extended thinking — it suppresses live streaming events
 )
@@ -120,7 +120,7 @@ The investigator prompt ends with an instruction to call `mcp__github__create_pu
 
 ### Quick Check mode
 
-Same runtime, different prompt (`quick_check.md`), different `max_turns=8`. Parser runs; only emits `tool_call`, `tool_result`, `quick_check_verdict`, `session_end`, `error`. The Quick Check prompt instructs the agent to emit exactly one `## Verdict` block in a strict YAML-like schema:
+Same runtime, different prompt (`quick_check.md`), different `max_turns=15`. Parser runs; only emits `tool_call`, `tool_result`, `quick_check_verdict`, `session_end`, `error`. The Quick Check prompt instructs the agent to emit exactly one `## Verdict` block in a strict YAML-like schema:
 
 ```
 ## Verdict:
@@ -141,7 +141,7 @@ notes: "one-line summary"
 ### Error handling
 
 - If `query()` raises, emit `error` envelope with `code="agent_exception"` + exception message, then `session_end` with `ok=false`.
-- If the agent hits `max_turns` without emitting `## Verdict`, wrap the final assistant message and emit `aborted` with `reason="turn_cap"`, then `session_end`.
+- If the agent hits `max_turns` without emitting `## Verdict`, the orchestrator synthesizes an `aborted` envelope with `reason="turn_cap"` and a `detail` that names the budget, then emits `session_end` with `stop_reason="turn_cap"` and `ok=false`. Frontend renders this as an amber "Aborted" banner.
 
 ## How to verify (end-to-end)
 
@@ -211,13 +211,15 @@ Findings from the Apr 22 audit pass. Every BLOCKER entry must be fixed
   no verdict.
   Fix sketch: include it in the set of parser events the orchestrator
   yields, alongside the investigate-mode events.
-- **BLOCKER — no synthesized `aborted` when SDK stops at `max_turns`.**
-  When the agent fails to write `## Aborted:` and the loop exhausts at
-  `max_turns=30`, no `aborted` envelope fires; contract says the server
-  must synthesize one (`reason="turn_cap"`).
-  Fix sketch: after the SDK loop exits, check `total_turns` and parser
-  state; if terminal and no aborted event was emitted, yield one before
-  the `session_end`.
+- **DONE — synthesized `aborted` when SDK stops at `max_turns`.**
+  After the SDK loop exits, the orchestrator checks `total_turns`
+  and parser state; if the run terminated at the cap without a
+  verdict (or the SDK's `stop_reason` mentions "turn"), we emit
+  `{"type": "aborted", "data": {"reason": "turn_cap", "detail":
+  "Run exhausted <N>-turn budget without producing a verdict."}}`
+  followed by `session_end` with `stop_reason: "turn_cap"` and
+  `ok: false`. Budgets are `max_turns=50` (investigate) / `15`
+  (check); see `TURN_BUDGETS` in `server/agent.py`.
 - **MAJOR — duplicate `session_end` on exception paths.**
   `server/agent.py:359-381` emits `session_end` on exception; the
   `server/main.py` WS handler also wraps the generator and can emit a
@@ -234,7 +236,7 @@ Findings from the Apr 22 audit pass. Every BLOCKER entry must be fixed
 - **MAJOR — `assistant_buffer` is O(n)-re-parsed on every delta.**
   `server/agent.py:611-651` accumulates the full markdown text and
   re-runs the parser after every text delta. Unbounded in memory; O(n²)
-  in the tail of a verbose 30-turn run.
+  in the tail of a verbose 50-turn run.
   Fix sketch: track a last-parsed offset and parse only the suffix; cap
   the buffer at ~1 MB and drop the oldest section-safe boundary.
 - **MINOR — `session_context` splicing may re-parse stale section headers.**

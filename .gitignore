@@ -149,3 +149,6 @@ repos/
 # KEEP these — they pin reproducibility. Do NOT add them to this ignore list.
 #   uv.lock
 #   web/package-lock.json
+
+# Personal Ideas
+docs/video-script.md

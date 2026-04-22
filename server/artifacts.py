@@ -1,0 +1,331 @@
+"""Artifact derivation from a persisted run.
+
+Given a run_id, synthesize the downloadable artifacts users care about:
+
+- dossier.md — concatenated dossier sections in canonical order
+- diff.patch — reconstructed unified-diff of files the agent edited
+- events.jsonl — raw envelope log (passthrough)
+- paper.md — the paper the agent ingested (from docling cache)
+
+Endpoints live in `server/main.py`; this module just produces the bytes.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from server.runs import RunStore, get_store
+
+log = logging.getLogger(__name__)
+
+
+DOSSIER_ORDER = (
+    "claim_tested",
+    "evidence_gathered",
+    "root_cause",
+    "fix_applied",
+    "remaining_uncertainty",
+)
+
+
+class ArtifactError(RuntimeError):
+    """Raised when an artifact cannot be built for the given run."""
+
+
+# --------------------------------------------------------------------------- #
+# dossier.md
+# --------------------------------------------------------------------------- #
+
+
+def build_dossier_md(run_id: str, *, store: RunStore | None = None) -> str:
+    """Concatenate this run's dossier sections into a single markdown file."""
+    s = store or get_store()
+    meta = s.load_meta(run_id)
+    if meta is None:
+        raise ArtifactError(f"unknown run_id: {run_id}")
+
+    sections: dict[str, str] = {}
+    claim: str | None = None
+    metric_deltas: list[dict] = []
+    pr: dict | None = None
+
+    for ev in s.iter_events(run_id):
+        data = ev.get("data") or {}
+        etype = ev.get("type")
+        if etype == "claim_summary":
+            claim = data.get("claim")
+        elif etype == "dossier_section":
+            section = data.get("section")
+            if section in DOSSIER_ORDER:
+                sections[section] = (data.get("markdown") or "").strip()
+        elif etype == "metric_delta":
+            metric_deltas.append(data)
+        elif etype == "pr_opened":
+            pr = data
+
+    lines: list[str] = []
+    title = meta.verdict_summary or "Paper Trail Dossier"
+    if len(title) > 90:
+        title = title[:87].rstrip() + "…"
+    lines.append(f"# {title}")
+    lines.append("")
+    lines.append(f"*Run: `{run_id}` · mode `{meta.mode}`*")
+    if meta.paper_url:
+        lines.append(f"*Paper: {meta.paper_url}*  ")
+    if meta.repo_slug:
+        lines.append(f"*Repo: `{meta.repo_slug}`*  ")
+    lines.append("")
+
+    if claim:
+        lines += ["## Claim", "", claim, ""]
+
+    if metric_deltas:
+        lines.append("## Metric deltas")
+        lines.append("")
+        lines.append("| Metric | Context | Before | After | Δ |")
+        lines.append("|---|---|---:|---:|---:|")
+        for md in metric_deltas:
+            before = md.get("before")
+            after = md.get("after")
+            delta = (
+                f"{(float(after) - float(before)):+.4f}"
+                if isinstance(before, (int, float)) and isinstance(after, (int, float))
+                else ""
+            )
+            lines.append(
+                f"| {md.get('metric', '')} "
+                f"| {md.get('context', '')} "
+                f"| {before} | {after} | {delta} |"
+            )
+        lines.append("")
+
+    for section_key in DOSSIER_ORDER:
+        body = sections.get(section_key)
+        if not body:
+            continue
+        heading = section_key.replace("_", " ").title()
+        lines += [f"## {heading}", "", body, ""]
+
+    if pr:
+        url = pr.get("url") or ""
+        number = pr.get("number")
+        number_str = f"PR #{number}" if number else "Pull request"
+        lines += ["---", "", f"**{number_str}:** {url}", ""]
+
+    # Validity report, if the user ran the Validator on this run. Landing it
+    # inside the dossier means the self-critique ships in the PR body too.
+    if meta.validity_report:
+        vr = meta.validity_report
+        lines.append("## Independent validity review")
+        lines.append("")
+        lines.append(
+            f"**Overall:** {vr.get('overall', 'n/a')} "
+            f"(validator confidence {vr.get('confidence', 0):.2f})"
+        )
+        lines.append("")
+        if vr.get("summary"):
+            lines.append(f"> {vr['summary']}")
+            lines.append("")
+        checks = vr.get("checks") or []
+        if checks:
+            lines.append("| Check | Mark | Note |")
+            lines.append("|---|---|---|")
+            mark_icon = {"pass": "✅ pass", "warn": "⚠️ warn", "fail": "❌ fail"}
+            for c in checks:
+                label = str(c.get("label", "")).replace("_", " ")
+                mark = mark_icon.get(c.get("mark", ""), c.get("mark", ""))
+                note = str(c.get("note", "")).replace("|", r"\|")
+                lines.append(f"| {label} | {mark} | {note} |")
+            lines.append("")
+
+    lines += [
+        "---",
+        "",
+        f"*Run cost: ${meta.cost_usd:.4f} · {meta.total_turns} turns · "
+        f"{meta.duration_ms/1000:.1f}s duration.*",
+        "",
+        "*Generated by Paper Trail.*",
+    ]
+    return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# events.jsonl
+# --------------------------------------------------------------------------- #
+
+
+def build_events_jsonl(run_id: str, *, store: RunStore | None = None) -> str:
+    """Return the raw envelope log as a string."""
+    s = store or get_store()
+    path = s.events_path(run_id)
+    if not path.exists():
+        raise ArtifactError(f"no events for run_id: {run_id}")
+    return path.read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- #
+# diff.patch
+# --------------------------------------------------------------------------- #
+
+
+def build_diff_patch(run_id: str, *, store: RunStore | None = None) -> str:
+    """Reconstruct a unified diff of files the agent edited.
+
+    Strategy: the agent runs inside a staged repo directory where `git` was
+    initialized at staging time with the broken-baseline as the first commit.
+    After the agent's Edits, `git diff HEAD` produces the patch we want.
+
+    If the repo path is unknown or no longer exists, raises ArtifactError.
+    """
+    s = store or get_store()
+    meta = s.load_meta(run_id)
+    if meta is None:
+        raise ArtifactError(f"unknown run_id: {run_id}")
+    if not meta.repo_path:
+        raise ArtifactError(f"run {run_id} has no repo_path in its config")
+
+    repo = Path(meta.repo_path)
+    if not repo.exists() or not (repo / ".git").exists():
+        raise ArtifactError(
+            f"repo at {repo} is missing or not a git repo; the fixture may have been "
+            "re-staged since the run finished"
+        )
+
+    try:
+        # Show full diff of tracked + untracked files the agent touched.
+        result = subprocess.run(
+            ["git", "diff", "HEAD", "--no-color"],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            raise ArtifactError(f"git diff failed: {result.stderr.strip()}")
+        patch = result.stdout
+    except subprocess.TimeoutExpired as exc:
+        raise ArtifactError(f"git diff timed out: {exc}") from exc
+
+    if not patch.strip():
+        # Agent may not have edited anything locally (Quick Check mode, or PR path).
+        patch = f"# (no local git diff for run {run_id}; see files_changed in meta)\n"
+        for f in meta.files_changed:
+            patch += f"# touched: {f}\n"
+    return patch
+
+
+# --------------------------------------------------------------------------- #
+# paper.md
+# --------------------------------------------------------------------------- #
+
+
+def build_paper_md(run_id: str, *, store: RunStore | None = None) -> str:
+    """Return the ingested paper for this run as markdown.
+
+    Pulls from the paper ingester's cache (keyed on the paper URL recorded
+    in the run's config). Falls back to a placeholder if nothing is cached.
+    """
+    s = store or get_store()
+    meta = s.load_meta(run_id)
+    if meta is None:
+        raise ArtifactError(f"unknown run_id: {run_id}")
+
+    paper_url = meta.paper_url
+    if not paper_url:
+        raise ArtifactError(f"run {run_id} had no paper_url")
+
+    try:
+        from server.papers import cache as paper_cache
+    except ImportError as exc:
+        raise ArtifactError(f"paper cache not importable: {exc}") from exc
+
+    paper = paper_cache.load(paper_url)
+    if paper is None:
+        raise ArtifactError(
+            f"no cached paper for {paper_url!r} (ingester may not have run on this host)"
+        )
+
+    return paper.full_markdown
+
+
+# --------------------------------------------------------------------------- #
+# usage aggregation
+# --------------------------------------------------------------------------- #
+
+
+def session_summary(session_id: str, *, store: RunStore | None = None) -> dict[str, Any]:
+    """Cost + turn totals for a session, plus per-run summaries.
+
+    The returned shape merges metadata from `sessions/{id}.json` (pinned, title,
+    created_at) with aggregated stats from each run's meta.json, so the sidebar
+    has everything it needs in one fetch.
+    """
+    s = store or get_store()
+    session_doc = s.load_session(session_id)
+    runs = s.list_session_runs(session_id)
+    total_cost = sum(m.cost_usd for m in runs)
+    total_turns = sum(m.total_turns for m in runs)
+    total_duration_ms = sum(m.duration_ms for m in runs)
+    return {
+        "session_id": session_id,
+        "pinned": bool(session_doc.get("pinned", False)),
+        "title": session_doc.get("title"),
+        "created_at": session_doc.get("created_at"),
+        "updated_at": session_doc.get("updated_at"),
+        "n_runs": len(runs),
+        "total_cost_usd": round(total_cost, 4),
+        "total_turns": total_turns,
+        "total_duration_ms": total_duration_ms,
+        "runs": [
+            {
+                "run_id": m.run_id,
+                "mode": m.mode,
+                "created_at": m.created_at,
+                "finished_at": m.finished_at,
+                "ok": m.ok,
+                "cost_usd": m.cost_usd,
+                "total_turns": m.total_turns,
+                "duration_ms": m.duration_ms,
+                "paper_url": m.paper_url,
+                "repo_path": m.repo_path,
+                "repo_slug": m.repo_slug,
+                "model": m.model,
+                "phase_timings": m.phase_timings,
+                "verdict_summary": m.verdict_summary,
+                "verdict_confidence": m.verdict_confidence,
+                "pr_url": m.pr_url,
+                "files_changed": m.files_changed,
+                "metric_deltas": m.metric_deltas,
+                "first_user_text": _first_user_text(m),
+                "validity_overall": (
+                    m.validity_report.get("overall") if m.validity_report else None
+                ),
+            }
+            for m in runs
+        ],
+    }
+
+
+def _first_user_text(meta: "RunMeta") -> str | None:  # type: ignore[name-defined]
+    """Pull a representative user-facing string for a run — for sidebar preview.
+
+    Prefers the user's typed prompt (works for both modes). Falls back to the
+    Quick Check question, then verdict summary, then paper_url/repo_path.
+    """
+    cfg = meta.config if isinstance(meta.config, dict) else {}
+    up = cfg.get("user_prompt")
+    if isinstance(up, str) and up.strip():
+        return up.strip()
+    q = cfg.get("question")
+    if isinstance(q, str) and q.strip():
+        return q.strip()
+    if meta.verdict_summary:
+        return meta.verdict_summary
+    if meta.paper_url:
+        return meta.paper_url
+    if meta.repo_path:
+        return meta.repo_path
+    return None

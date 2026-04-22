@@ -1,0 +1,151 @@
+# =============================================================================
+# Paper Trail — .gitignore
+# =============================================================================
+# Principle: aggressively exclude runtime artifacts, caches, and local
+# personal state. NEVER exclude human-authored source or docs. Secrets
+# are the hard line — .env is excluded and .env.example carries placeholders.
+# =============================================================================
+
+# ------- SECRETS — must never be committed -----------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*_rsa
+*_rsa.pub
+*_ed25519
+*_ed25519.pub
+id_rsa
+id_ed25519
+credentials.json
+secrets.json
+.netrc
+.npmrc
+.pypirc
+.aws/
+.gcp/
+*.gpg
+*.asc
+
+# ------- Python --------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.Python
+.venv/
+venv/
+env/
+ENV/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+.hypothesis/
+dist/
+build/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ------- uv ------------------------------------------------------------------
+.uv_cache/
+
+# ------- Node / Vite / frontend ---------------------------------------------
+node_modules/
+web/dist/
+web/.vite/
+.vite/
+.npm/
+.eslintcache
+.parcel-cache/
+.rpt2_cache/
+.rts2_cache_*/
+*.tsbuildinfo
+
+# ------- Editor / IDE / tooling ---------------------------------------------
+.vscode/
+!.vscode/extensions.json
+.idea/
+.fleet/
+.cursor/
+.zed/
+.history/
+*.swp
+*.swo
+*.swn
+*~
+*.bak
+*.orig
+*.rej
+*.tmproj
+
+# ------- OS junk -------------------------------------------------------------
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ------- Jupyter / notebooks ------------------------------------------------
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+
+# ------- Logs ----------------------------------------------------------------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------- Local scratch / tmp ------------------------------------------------
+scratch/
+tmp/
+.tmp/
+*.tmp
+
+# ------- Runtime artifacts specific to this project -------------------------
+# Paper ingester on-disk cache (reproducible from URLs — no need to ship)
+.cache/
+
+# Run store (events.jsonl + meta.json per run). Default home dir, but in case
+# a dev sets it to a project-relative path, swallow both locations.
+.paper-trail/
+runs/
+
+# Uploaded PDFs the user attaches through the UI. Personal content.
+uploads/
+
+# Local-cloned demo repos, if the sandbox is ever pointed at repo root.
+repos/
+
+# ------- Claude Code machine-local state -------------------------------------
+# `.claude/settings.local.json` is your per-machine tool-permission allowlist.
+# Don't publish it — it leaks your local Bash patterns and environment quirks.
+.claude/settings.local.json
+.claude/projects/
+.claude/plans/
+
+# ------- Lockfile strategy ---------------------------------------------------
+# KEEP these — they pin reproducibility. Do NOT add them to this ignore list.
+#   uv.lock
+#   web/package-lock.json

@@ -160,25 +160,73 @@ async def _handle_ws(ws: WebSocket, mode: Mode) -> None:
             )
             return
 
+        # Run the orchestrator in a background task so we can concurrently
+        # watch the WebSocket for client-initiated `{"type": "stop"}` frames
+        # (the D5.X-abort contract — see docs/integration.md).
+        agent_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+        async def _pump() -> None:
+            """Drive the orchestrator and push envelopes onto the queue."""
+            try:
+                async for envelope in run_agent(config):
+                    await agent_queue.put(envelope)
+            finally:
+                await agent_queue.put(None)  # sentinel: generator done
+
+        run_task = asyncio.create_task(_pump(), name=f"agent-{run_id}")
+        client_stopped = False
+
+        async def _watch_client() -> None:
+            """Watch for a client-originated stop frame or a disconnect.
+
+            When either arrives, cancel the run task; the orchestrator's
+            CancelledError handler emits a terminal `session_end` with
+            `stop_reason="user_abort"`.
+            """
+            nonlocal client_stopped
+            try:
+                while True:
+                    frame = await ws.receive_json()
+                    if isinstance(frame, dict) and frame.get("type") == "stop":
+                        client_stopped = True
+                        log.info("ws client sent stop frame (run_id=%s)", run_id)
+                        run_task.cancel()
+                        return
+                    log.debug("ignoring unknown client frame: %s", frame)
+            except WebSocketDisconnect:
+                if not run_task.done():
+                    log.info(
+                        "ws client disconnected mid-run (run_id=%s) — cancelling agent",
+                        run_id,
+                    )
+                    run_task.cancel()
+            except Exception:
+                log.debug("watch_client ended", exc_info=True)
+
+        watch_task = asyncio.create_task(_watch_client(), name=f"watch-{run_id}")
+
         try:
-            async for envelope in run_agent(config):
+            while True:
+                envelope = await agent_queue.get()
+                if envelope is None:
+                    break
+                # Only the abort path can inject user_abort; harden against
+                # orchestrator reporting that without a real client stop.
+                if (
+                    envelope.get("type") == "session_end"
+                    and envelope.get("data", {}).get("stop_reason") == "user_abort"
+                    and not client_stopped
+                ):
+                    envelope["data"]["stop_reason"] = "client_disconnect"
                 await send(envelope)
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            log.exception("unhandled exception in run_agent")
-            await send(
-                {
-                    "type": "error",
-                    "data": {"code": "agent_exception", "message": str(exc)},
-                }
-            )
-            await send(
-                {
-                    "type": "session_end",
-                    "data": {"ok": False, "error": str(exc)},
-                }
-            )
+        finally:
+            watch_task.cancel()
+            try:
+                await asyncio.shield(asyncio.wait_for(run_task, timeout=0.5))
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
+            except Exception:
+                log.debug("run_task final drain raised", exc_info=True)
 
     except WebSocketDisconnect:
         log.info("ws client disconnected (run_id=%s, mode=%s)", run_id, mode)

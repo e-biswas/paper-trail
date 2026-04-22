@@ -47,6 +47,20 @@ ALLOWED_MODELS: tuple[str, ...] = (
 )
 DEFAULT_MODEL: str = "claude-opus-4-7"
 
+# Per-million-token prices (USD) for in-flight cost estimates. The SDK's
+# ResultMessage is authoritative at end-of-run; these are only used to drive
+# the `cost_update` stream before the ResultMessage arrives. Approx Apr 2026.
+_MODEL_PRICING_PER_MTOK: dict[str, tuple[float, float]] = {
+    # model → (input_per_mtok, output_per_mtok)
+    "claude-opus-4-7":           (15.0, 75.0),
+    "claude-sonnet-4-6":          (3.0, 15.0),
+    "claude-haiku-4-5-20251001":  (1.0,  5.0),
+}
+
+# Minimum spacing between cost_update emissions (seconds). Per integration.md
+# contract: "no more than 1 emission per 750 ms".
+_COST_UPDATE_MIN_INTERVAL_SEC = 0.75
+
 # Tool allowlists per mode. Subagent delegation via `Task` is reserved for
 # Day 3+; the Day-2 conductor does the investigation itself.
 _INVESTIGATE_TOOLS: list[str] = [
@@ -336,8 +350,11 @@ async def run_agent(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
             if event.get("type") == "session_end":
                 session_ended = True
     except asyncio.CancelledError:
-        # Client disconnect or parent task cancellation. Still send session_end
-        # so persisted meta is accurate; caller propagates cancellation upward.
+        # Client disconnect or parent task cancellation. We report this as
+        # `user_abort` per the abort contract (see docs/integration.md —
+        # "Planned — abort + cost stream"). The WS handler cancels this task
+        # when the browser sends `{"type": "stop"}` or disconnects mid-run,
+        # so both paths surface the same terminal reason to persistence.
         if not session_ended:
             for phase_ev in phases.flush():
                 await _emit(phase_ev)
@@ -347,7 +364,7 @@ async def run_agent(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
                 "type": "session_end",
                 "data": {
                     "ok": False,
-                    "stop_reason": "cancelled",
+                    "stop_reason": "user_abort",
                     "total_turns": 0,
                     "cost_usd": 0.0,
                     "duration_ms": elapsed_ms,
@@ -612,14 +629,20 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
     emitted_parser_count = 0  # how many parser events we've already yielded
 
     started = asyncio.get_event_loop().time()
-    total_turns = 0
-    total_cost = 0.0
+    total_turns = 0             # updated live on AssistantMessage
+    total_cost = 0.0            # authoritative only after ResultMessage
+    estimated_cost = 0.0        # best-effort in-flight estimate for cost_update
+    last_cost_emit_mono = 0.0   # rate-limits cost_update to contract cadence
+    last_emitted_cost = 0.0     # ensures cost_update monotonically non-decreasing
+    emitted_aborted = False     # tracks whether a `## Aborted:` block already fired
+    saw_terminal_parsed = False # verdict / quick_check_verdict seen?
 
     async for msg in query(prompt=user_prompt, options=options):
         if isinstance(msg, SystemMessage):
             continue
 
         if isinstance(msg, AssistantMessage):
+            total_turns += 1
             text_added = False
             for block in msg.content:
                 if isinstance(block, TextBlock):
@@ -632,6 +655,11 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
                             assistant_buffer.append("\n")
                         assistant_buffer.append(block.text)
                         text_added = True
+                        # Debug-only raw passthrough per integration.md contract.
+                        yield {
+                            "type": "raw_text_delta",
+                            "data": {"text": block.text},
+                        }
                 elif isinstance(block, ToolUseBlock):
                     yield {
                         "type": "tool_call",
@@ -642,11 +670,39 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
                         },
                     }
 
+            # Best-effort cost estimate from the cumulative usage dict
+            # the SDK attaches to each AssistantMessage. The final value
+            # from ResultMessage supersedes at end-of-run.
+            est = _estimate_cost_usd(config.model, getattr(msg, "usage", None))
+            if est is not None and est > estimated_cost:
+                estimated_cost = est
+            # Rate-limit cost_update to contract cadence. Must be monotone
+            # non-decreasing per integration.md; we emit max(last_emitted,
+            # estimate).
+            now_mono = asyncio.get_event_loop().time()
+            if now_mono - last_cost_emit_mono >= _COST_UPDATE_MIN_INTERVAL_SEC:
+                last_cost_emit_mono = now_mono
+                emit_cost = max(last_emitted_cost, estimated_cost)
+                if emit_cost >= last_emitted_cost:
+                    last_emitted_cost = emit_cost
+                    yield {
+                        "type": "cost_update",
+                        "data": {
+                            "total_usd": round(emit_cost, 4),
+                            "turns": total_turns,
+                        },
+                    }
+
             if text_added:
                 # Re-parse the FULL buffer; the parser is idempotent.
                 events = parse_markdown("".join(assistant_buffer))
                 if len(events) > emitted_parser_count:
                     for ev in events[emitted_parser_count:]:
+                        etype = ev.get("type")
+                        if etype == "aborted":
+                            emitted_aborted = True
+                        elif etype in ("verdict", "quick_check_verdict"):
+                            saw_terminal_parsed = True
                         yield ev
                     emitted_parser_count = len(events)
             continue
@@ -667,18 +723,67 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
             continue
 
         if isinstance(msg, ResultMessage):
-            total_turns = int(getattr(msg, "num_turns", 0) or 0)
+            total_turns = int(getattr(msg, "num_turns", total_turns) or total_turns)
             total_cost = float(getattr(msg, "total_cost_usd", 0.0) or 0.0)
             duration_ms = int(getattr(msg, "duration_ms", 0) or 0)
             ok = not bool(getattr(msg, "is_error", False))
+            sdk_stop_reason = getattr(msg, "stop_reason", None)
 
             # Final parser flush in case the agent's last chars never triggered
             # a re-parse (e.g. no following message).
             full_text = "".join(assistant_buffer)
             events = parse_markdown(full_text)
             for ev in events[emitted_parser_count:]:
+                etype = ev.get("type")
+                if etype == "aborted":
+                    emitted_aborted = True
+                elif etype in ("verdict", "quick_check_verdict"):
+                    saw_terminal_parsed = True
                 yield ev
             emitted_parser_count = len(events)
+
+            # Final authoritative cost_update (one last tick so the UI
+            # converges on the real number before session_end closes the pill).
+            # Monotonic: never decrease below prior emissions, even if the
+            # SDK's authoritative total is smaller than an early estimate.
+            final_cost_usd = max(last_emitted_cost, total_cost)
+            last_emitted_cost = final_cost_usd
+            yield {
+                "type": "cost_update",
+                "data": {
+                    "total_usd": round(final_cost_usd, 4),
+                    "turns": total_turns,
+                },
+            }
+
+            # Synthesize an `aborted` envelope when the SDK stopped because
+            # of the turn cap without the agent writing `## Aborted:` AND
+            # without a terminal verdict. Spec requires the server emit this
+            # so the frontend can distinguish "ran out of budget" from "done".
+            session_stop_reason: str | None = sdk_stop_reason
+            looks_like_turn_cap = (
+                isinstance(sdk_stop_reason, str)
+                and "turn" in sdk_stop_reason.lower()
+            )
+            hit_turn_cap_silently = (
+                (looks_like_turn_cap or total_turns >= config.max_turns)
+                and not emitted_aborted
+                and not saw_terminal_parsed
+            )
+            if hit_turn_cap_silently:
+                yield {
+                    "type": "aborted",
+                    "data": {
+                        "reason": "turn_cap",
+                        "detail": (
+                            f"Run exhausted {config.max_turns}-turn budget "
+                            "without producing a verdict."
+                        ),
+                    },
+                }
+                emitted_aborted = True
+                session_stop_reason = "turn_cap"
+                ok = False
 
             # Optional debug dump of the conductor's raw markdown output.
             dump_path = os.environ.get("REPRO_DEBUG_DUMP")
@@ -689,16 +794,16 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
                 except OSError as e:
                     log.warning("could not write debug dump: %s", e)
 
-            yield {
-                "type": "session_end",
-                "data": {
-                    "ok": ok,
-                    "total_turns": total_turns,
-                    "cost_usd": round(total_cost, 4),
-                    "duration_ms": duration_ms,
-                    "stop_reason": getattr(msg, "stop_reason", None),
-                },
+            end_data: dict[str, Any] = {
+                "ok": ok,
+                "total_turns": total_turns,
+                # Final value MUST equal the last cost_update per contract.
+                "cost_usd": round(final_cost_usd, 4),
+                "duration_ms": duration_ms,
             }
+            if session_stop_reason is not None:
+                end_data["stop_reason"] = session_stop_reason
+            yield {"type": "session_end", "data": end_data}
             return
 
     # Defensive fallback: SDK exhausted without ResultMessage.
@@ -711,7 +816,7 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
         "data": {
             "ok": True,
             "total_turns": total_turns,
-            "cost_usd": round(total_cost, 4),
+            "cost_usd": round(total_cost or estimated_cost, 4),
             "duration_ms": elapsed,
         },
     }
@@ -720,6 +825,34 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
 # ---------------------------------------------------------------------- #
 # Helpers
 # ---------------------------------------------------------------------- #
+
+
+def _estimate_cost_usd(model: str, usage: dict[str, Any] | None) -> float | None:
+    """Rough cost estimate from the SDK's cumulative `usage` dict.
+
+    The SDK attaches a cumulative usage dict to each `AssistantMessage`.
+    We turn that into a dollar figure using a small per-model price table.
+    Returns None when `usage` is missing or unusable; the caller falls back
+    to the prior estimate. The final ResultMessage.total_cost_usd supersedes
+    all of these — this is a best-effort in-flight number for the UI.
+    """
+    if not usage or not isinstance(usage, dict):
+        return None
+    pin, pout = _MODEL_PRICING_PER_MTOK.get(model, (15.0, 75.0))
+
+    def _int(key: str) -> int:
+        try:
+            return int(usage.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    input_tokens = _int("input_tokens")
+    output_tokens = _int("output_tokens")
+    cache_create = _int("cache_creation_input_tokens")
+    cache_read = _int("cache_read_input_tokens")
+    # Cache-write is usually priced at 1.25× input; cache-read at 0.10×.
+    effective_input = input_tokens + int(cache_create * 1.25) + int(cache_read * 0.10)
+    return (effective_input * pin + output_tokens * pout) / 1_000_000.0
 
 
 def _stringify_tool_result(content: Any) -> str:

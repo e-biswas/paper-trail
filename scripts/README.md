@@ -43,47 +43,64 @@ baseline, even if the previous run merged a fix. Idempotent by design.
 **When NOT to run it.** Never during a live run. It force-pushes, which
 would clobber any in-progress PR the agent is working against.
 
-### `preflight.sh` (planned — TASKS D5.X-preflight)
+### `preflight.sh`
 
 A one-command sanity check you run before a rehearsal or the live
-demo. Fails fast if any precondition is wrong, so you find out now
-rather than 30 seconds into the run on stage.
+demo. Fails fast at the first broken precondition, so you find out
+now rather than 30 seconds into the run on stage.
 
 **Why this exists.** Paper Trail has a long list of external
-preconditions: env vars filled in, a GitHub PAT with the right scope,
-ports 8080 and 5173 free, enough disk on `/tmp`, a Python env and
-Node toolchain that actually work, network reachability to GitHub
-and arXiv, and two fixtures that must stage cleanly. Any one of
-these can silently fail and turn a 3-minute demo into a 30-minute
-debug session. The preflight bundles all the checks into one script.
+preconditions: env vars filled in, a GitHub PAT, ports 8080 and 5173
+free, enough disk on `/tmp`, a working Python env and Node
+toolchain, network reachability to GitHub / arXiv / Anthropic, and
+two fixtures that must stage cleanly. Any one of these can silently
+fail and turn a 3-minute demo into a 30-minute debug session. The
+preflight bundles all the checks into one script.
+
+**How to run it.**
+
+```bash
+./scripts/preflight.sh                          # full run, ~2–5 s on a warm cache
+PREFLIGHT_SKIP_NETWORK=1 ./scripts/preflight.sh # skip HTTP probes (offline rehearsal)
+PREFLIGHT_SKIP_STAGE=1   ./scripts/preflight.sh # skip fixture stage probe (fast iteration)
+```
+
+Exit status is `0` on full green, `1` on the first failure. Output
+is one `✓` / `✗` / `!` / `·` line per check plus a one-line summary
+with elapsed seconds. Runs from the repo root; `cd` isn't needed —
+the script detects its own location.
 
 **What it checks, in order:**
 
-1. **Env vars present.** `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`,
-   `GITHUB_BOT_OWNER`, `GITHUB_BOT_REPO`, `GITHUB_BOT_REPO_ISIC` —
-   each must be set and non-empty.
-2. **GitHub PAT scope.** `gh auth status` reports the `repo` scope
-   (needed to push branches and open PRs on the bot-owned repo).
-3. **Ports free.** `lsof -i :8080 -i :5173` returns nothing.
+1. **Env vars present.** `.env` loads; `ANTHROPIC_API_KEY`,
+   `GITHUB_TOKEN`, `GITHUB_BOT_OWNER`, `GITHUB_BOT_REPO` all set and
+   non-empty (and not the `.env.example` placeholder strings).
+   `GITHUB_BOT_REPO_ISIC` is soft-required — a warning, not a fail.
+2. **GitHub PAT scope.** Paper Trail uses the GitHub MCP server (via
+   `npx`), not the `gh` CLI, so `gh` is optional. If `gh` is present
+   the script uses `gh auth status`; otherwise it probes
+   `api.github.com/user` with the token. Fine-grained tokens
+   (no `x-oauth-scopes` header) surface as a warning, not a fail.
+3. **Ports free.** `lsof -i :8080` and `lsof -i :5173` both empty.
 4. **Disk space.** At least 2 GB free on the `/tmp` filesystem.
-5. **Toolchain versions.** `python --version` ≥ 3.11,
-   `node --version` ≥ 20, `npm --version` works, `uv --version`
-   works, `gh --version` works.
-6. **Dependencies installed.** `uv sync --frozen --check` returns
-   clean; `npm --prefix web ci --dry-run` returns clean.
-7. **Network reachability.** `curl -sfI https://github.com` and
-   `curl -sfI https://arxiv.org/abs/1603.05629` both return 200
-   within 5 s.
+5. **Toolchain versions.** Python ≥ 3.11, Node ≥ 20, `npm`, `uv`,
+   and `gh` (if installed) all resolvable.
+6. **Dependencies installed.** `uv sync --frozen` runs clean;
+   `web/node_modules` is present (warning if not — run `npm ci`).
+7. **Network reachability.** HEAD probes to `github.com`,
+   `arxiv.org/abs/1603.05629`, and `api.anthropic.com/v1/messages`
+   within a 5 s timeout. Any `2xx` / `3xx` / `4xx` counts as
+   reachable; `5xx` or no-response fails. Skip with
+   `PREFLIGHT_SKIP_NETWORK=1`.
 8. **Fixture stageability.** `demo/primary/stage.sh` and
-   `demo/backup/stage.sh` both run to completion against a
-   throwaway `/tmp/paper-trail-preflight-*` target.
-9. **Prompts load.** Python import of `server.agent` and
-   `server.prompts` succeeds (catches syntax / missing-file
-   regressions early).
-
-**Output.** One line per check, `✓` or `✗` prefix. Non-zero exit on
-first failure so CI can gate on it. Prints a summary at the end with
-elapsed time.
+   `demo/backup/stage.sh` both run to completion against throwaway
+   `/tmp/paper-trail-preflight-*` targets that are removed on
+   success. Skip with `PREFLIGHT_SKIP_STAGE=1`.
+9. **Prompts load.** `uv run python -c` imports the investigator +
+   quick-check prompts and all six subagent prompts (`code_auditor`,
+   `experiment_runner`, `paper_reader`, `validator`,
+   `patch_generator`, `metric_extractor`). Catches syntax or
+   missing-file regressions before a live run.
 
 **When to run it.**
 
@@ -92,9 +109,10 @@ elapsed time.
 - After pulling changes on a fresh machine.
 - On any new machine, before even running `init_demo_repos.sh`.
 
-**When NOT to run it.** During an active run — it starts its own
-fixture-stage probe which collides with the /tmp state the running
-agent depends on.
+**When NOT to run it.** During an active run — the fixture-stage
+probe collides with the `/tmp/*-demo` state the running agent
+depends on. Use `PREFLIGHT_SKIP_STAGE=1` if you need the rest of the
+checks while a run is in flight.
 
 ## Related
 
@@ -102,3 +120,6 @@ agent depends on.
   staging work; `init_demo_repos.sh` wraps them with the push step,
   `preflight.sh` wraps them in a dry-run probe.
 - `.env.example` — shows the env vars these scripts read.
+- `tests/smoke_abort_e2e.py` + `tests/smoke_new_subagents.py` — the
+  backend smoke tests preflight's prompt-load check guards against
+  regressing.

@@ -37,7 +37,7 @@ class SubagentResult:
 
 
 _RESULT_HEADER_RE = re.compile(
-    r"^## (AuditResult|RunResult|PaperSummary|ValidityReport|Verdict)\s*:\s*$",
+    r"^## (AuditResult|RunResult|PaperSummary|ValidityReport|Verdict|Patch|Metric)\s*:\s*$",
     re.MULTILINE,
 )
 
@@ -56,6 +56,38 @@ def extract_result_block(text: str, *, expected_kind: str) -> dict[str, Any] | N
         if parsed:
             return parsed
     return None
+
+
+def extract_all_result_blocks(text: str, *, expected_kind: str) -> list[dict[str, Any]]:
+    """Like `extract_result_block` but returns every matching block in order.
+
+    Used by subagents that may emit multiple result blocks in a single
+    response (e.g. Metric Extractor emits one `## Metric:` block per metric).
+    """
+    blocks: list[dict[str, Any]] = []
+    for m in _RESULT_HEADER_RE.finditer(text):
+        if m.group(1) != expected_kind:
+            continue
+        body_start = m.end()
+        next_header = _RESULT_HEADER_RE.search(text, body_start)
+        body = text[body_start : next_header.start() if next_header else len(text)]
+        parsed = _parse_yaml_ish(body)
+        if parsed:
+            blocks.append(parsed)
+    return blocks
+
+
+def extract_fenced_diff(text: str) -> str | None:
+    """Pull out the first fenced ```diff``` code block in `text`.
+
+    Returns the diff content between the fences (no backticks, no language
+    tag) or None if no fenced diff block is present.
+    """
+    fence_re = re.compile(r"^```diff\s*\n(.*?)\n```\s*$", re.DOTALL | re.MULTILINE)
+    m = fence_re.search(text)
+    if not m:
+        return None
+    return m.group(1)
 
 
 def _parse_yaml_ish(body: str) -> dict[str, Any]:

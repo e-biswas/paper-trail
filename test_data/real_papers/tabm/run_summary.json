@@ -1,0 +1,118 @@
+{
+  "target": "tabm",
+  "paper": {
+    "title": "TabM: Advancing Tabular Deep Learning with Parameter-Efficient Ensembling",
+    "authors": [
+      "Yury Gorishniy",
+      "Akim Kotelnikov",
+      "Artem Babenko"
+    ],
+    "arxiv_id": "2410.24210",
+    "markdown_chars": 221578,
+    "sections": 66,
+    "ingest_duration_s": 0.0
+  },
+  "repo": {
+    "url": "https://github.com/yandex-research/tabm.git",
+    "local_path": "/tmp/real-tabm",
+    "clone_duration_s": 5.66,
+    "py_file_count": 15,
+    "ipynb_file_count": 1,
+    "clone_size_mb": 95.75
+  },
+  "checks": [
+    {
+      "question": "Is the train/validation/test split leak-free? Any normalization or feature engineering fit on the full dataset before splitting?",
+      "verdict": "confirmed",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "file": "example.ipynb",
+          "line": 145,
+          "snippet": "trainval_idx, test_idx = sklearn.model_selection.train_test_split(all_idx, train_size=0.8)"
+        },
+        {
+          "file": "example.ipynb",
+          "line": 148,
+          "snippet": "train_idx, val_idx = sklearn.model_selection.train_test_split(trainval_idx, train_size=0.8)"
+        },
+        {
+          "file": "example.ipynb",
+          "line": 198,
+          "snippet": "preprocessing = sklearn.preprocessing.QuantileTransformer(...).fit(x_num_train_numpy + noise)"
+        },
+        {
+          "file": "example.ipynb",
+          "line": 207,
+          "snippet": "data_numpy[part]['x_num'] = preprocessing.transform(data_numpy[part]['x_num'])"
+        },
+        {
+          "file": "example.ipynb",
+          "line": 214,
+          "snippet": "Y_train = data_numpy['train']['y'].copy(); regression_label_stats = RegressionLabelStats(Y_train.mean().item(), Y_train.std().item())"
+        }
+      ],
+      "notes": "Split happens before any preprocessing; QuantileTransformer and regression label mean/std are fit on train only, then applied to val/test \u2014 no leakage.",
+      "tool_calls": 2,
+      "duration_s": 15.34,
+      "cost_usd": 0.1475,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Does the repo use group-aware splits when the underlying benchmark has a grouping column, or does it rely on random row-level splits?",
+      "verdict": "unclear",
+      "confidence": 0.5,
+      "evidence": [
+        {
+          "file": "example.ipynb",
+          "line": 145,
+          "snippet": "trainval_idx, test_idx = sklearn.model_selection.train_test_split("
+        },
+        {
+          "file": "paper/tools/prepare_tabred.py",
+          "line": 23,
+          "snippet": "part: np.load(src / f'split-default/{part}_idx.npy')"
+        }
+      ],
+      "notes": "\"The example notebook performs random row-level `train_test_split` with no grouping, while TabReD datasets are imported using precomputed `split-default` indices supplied by the benchmark (which are time-based/group-aware upstream); the repo itself never constructs group-aware splits \u2014 it defers to benchmark-provided index files.",
+      "tool_calls": 3,
+      "duration_s": 15.57,
+      "cost_usd": 0.0835,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Are model checkpoints evaluated on the test set multiple times with different hyperparameters (test-set contamination via selection)?",
+      "verdict": "refuted",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "file": "paper/bin/tune.py",
+          "line": 185,
+          "snippet": "return report['metrics']['val']['score']"
+        },
+        {
+          "file": "paper/bin/model.py",
+          "line": 654,
+          "snippet": "early_stopping.update(metrics['val']['score'])"
+        },
+        {
+          "file": "paper/bin/model.py",
+          "line": 655,
+          "snippet": "if early_stopping.should_stop() or not lib.are_valid_predictions(predictions):"
+        }
+      ],
+      "notes": "\"Hyperparameter tuning and early stopping both optimize on the validation split's score, not the test set, so test scores are not used for model/hyperparameter selection.",
+      "tool_calls": 3,
+      "duration_s": 12.85,
+      "cost_usd": 0.0627,
+      "crashed": false,
+      "error": null
+    }
+  ],
+  "n_verdicts": 3,
+  "n_crashes": 0,
+  "total_cost_usd": 0.2937,
+  "run_date": "2026-04-21 23:26:49 UTC"
+}

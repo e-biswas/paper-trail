@@ -1,0 +1,9 @@
+Is the codebase structured so CPU-only or single-GPU inference is feasible, or is it fundamentally tied to TPU / JAX distributed training? Cite the dependency declarations or hardware-specific code paths.
+
+Does the repo provide hyperparameter sweeps or scaling recipes for each model size (25M / 85M / 170M / 302M / 567M / 3B / 10B), or must the user hand-tune for each scale?
+
+Are pretrained model checkpoints published externally (HuggingFace or similar) so inference-only evaluation is feasible without a full training run? Cite the reference if any.
+
+Is the training data (Nemotron-CC) pinned to a specific version / preprocessing recipe in the repo, or does the code assume the user reproduces the data pipeline independently?
+
+Does the repo expose the interpolation parameter between masked and uniform diffusion (the paper's main methodological novelty) as a first-class configurable in the training config?

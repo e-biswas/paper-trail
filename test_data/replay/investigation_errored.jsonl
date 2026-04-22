@@ -1,0 +1,6 @@
+{"type":"session_start","run_id":"errored-001","ts":"2026-04-23T10:15:00.000Z","seq":0,"data":{"mode":"investigate"}}
+{"type":"claim_summary","run_id":"errored-001","ts":"2026-04-23T10:15:02.000Z","seq":1,"data":{"claim":"Model claim goes here."}}
+{"type":"tool_call","run_id":"errored-001","ts":"2026-04-23T10:15:03.000Z","seq":2,"data":{"id":"toolu_e1","name":"Read","input":{"file_path":"/tmp/repo-under-investigation/src/prepare.py"}}}
+{"type":"tool_result","run_id":"errored-001","ts":"2026-04-23T10:15:03.100Z","seq":3,"data":{"id":"toolu_e1","name":"Read","output":"File not found: /tmp/repo-under-investigation/src/prepare.py","is_error":true,"duration_ms":42}}
+{"type":"error","run_id":"errored-001","ts":"2026-04-23T10:15:04.000Z","seq":4,"data":{"code":"agent_exception","message":"Repo path does not exist or required file missing: /tmp/repo-under-investigation/src/prepare.py"}}
+{"type":"session_end","run_id":"errored-001","ts":"2026-04-23T10:15:04.100Z","seq":5,"data":{"ok":false,"total_turns":1,"cost_usd":0.02,"duration_ms":4100}}

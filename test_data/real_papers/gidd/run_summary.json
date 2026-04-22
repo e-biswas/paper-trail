@@ -1,0 +1,205 @@
+{
+  "paper": {
+    "title": "Scaling Behavior of Discrete Diffusion Language Models",
+    "authors": [
+      "Dimitri von R\u00fctte",
+      "Janis Fluri",
+      "Omead Pooladzandi"
+    ],
+    "arxiv_id": "2512.10858",
+    "markdown_chars": 101478,
+    "sections": 27,
+    "ingest_duration_s": 20.43
+  },
+  "repo": {
+    "url": "https://github.com/dvruette/gidd-easydel.git",
+    "clone_duration_s": 1.97,
+    "py_file_count": 33,
+    "ipynb_file_count": 16,
+    "clone_size_mb": 30.68
+  },
+  "checks": [
+    {
+      "question": "Is the codebase structured so CPU-only or single-GPU inference is feasible, or is it fundamentally tied to TPU / JAX distributed training? Cite the dependency declarations or hardware-specific code paths.",
+      "verdict": "confirmed",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "file": "requirements.txt",
+          "line": 8,
+          "snippet": "jax==0.7.1"
+        },
+        {
+          "file": "requirements.txt",
+          "line": 1,
+          "snippet": "easydel @ git+https://github.com/dvruette/EasyDeL.git@..."
+        },
+        {
+          "file": "gidd_easydel/model/modeling_gidd_hf.py",
+          "line": 6,
+          "snippet": "import torch"
+        },
+        {
+          "file": "gidd_easydel/model/modeling_gidd_hf.py",
+          "line": 8,
+          "snippet": "from torch.nn.attention.flex_attention import flex_attention"
+        },
+        {
+          "file": "notebooks/test_pytorch_inference.ipynb",
+          "line": 1,
+          "snippet": "(PyTorch inference notebook present alongside test_jax_inference.ipynb)"
+        },
+        {
+          "file": "tests/conftest.py",
+          "line": 8,
+          "snippet": "jax.config.update(\\\"jax_platform_name\\\", \\\"cpu\\\")"
+        },
+        {
+          "file": "gidd_easydel/train.py",
+          "line": 110,
+          "snippet": "num_local_devices = jax.local_device_count()"
+        }
+      ],
+      "notes": "Training is fundamentally JAX/EasyDeL with multi-device sharding (FSDP+TP, multihost sync), but a standalone PyTorch HuggingFace model (modeling_gidd_hf.py) and a pytorch-inference notebook exist, so CPU-only / single-GPU inference is feasible via the torch path even though training is not.",
+      "tool_calls": 4,
+      "duration_s": 17.82,
+      "cost_usd": 0.1655,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Does the repo provide hyperparameter sweeps or scaling recipes for each model size (25M / 85M / 170M / 302M / 567M / 3B / 10B), or must the user hand-tune for each scale?",
+      "verdict": "refuted",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "file": "args.py",
+          "line": 14,
+          "snippet": "parser.add_argument(\\\"--num_layers\\\", type=int, default=8, help=\\\"Number of layers in the model.\\\")"
+        },
+        {
+          "file": "args.py",
+          "line": 15,
+          "snippet": "parser.add_argument(\\\"--hidden_size\\\", type=int, default=512, help=\\\"Hidden size of the model.\\\")"
+        },
+        {
+          "file": "args.py",
+          "line": 35,
+          "snippet": "parser.add_argument(\\\"--lr\\\", type=float, default=0.5, help=\\\"Learning rate for the optimizer.\\\")"
+        },
+        {
+          "file": "args.py",
+          "line": 22,
+          "snippet": "parser.add_argument(\\\"--max_training_steps\\\", type=int, default=100_000, help=\\\"Maximum number of training steps.\\\")"
+        }
+      ],
+      "notes": "The repo exposes a single argparse CLI with one default set of hyperparameters and has no configs/ or scripts/ directory providing per-size (25M/85M/.../10B) sweeps or scaling recipes \u2014 users must pass CLI flags to scale each run.",
+      "tool_calls": 3,
+      "duration_s": 17.46,
+      "cost_usd": 0.1078,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Are pretrained model checkpoints published externally (HuggingFace or similar) so inference-only evaluation is feasible without a full training run? Cite the reference if any.",
+      "verdict": "confirmed",
+      "confidence": 0.95,
+      "evidence": [
+        {
+          "file": "README.md",
+          "line": 24,
+          "snippet": "| `gidd-unif-10b` | 10B | 9.15 | uniform | https://huggingface.co/dvruette/gidd-unif-10b |"
+        },
+        {
+          "file": "README.md",
+          "line": 25,
+          "snippet": "| `gidd-mask-3b` | 3B | 11.3 | masked | https://huggingface.co/dvruette/gidd-mask-3b |"
+        },
+        {
+          "file": "README.md",
+          "line": 30,
+          "snippet": "The 3B and 10B models are available as converted PyTorch models on HuggingFace and can be used as follows:"
+        },
+        {
+          "file": "README.md",
+          "line": 40,
+          "snippet": "model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True, torch_dtype=torch.bfloat16)"
+        },
+        {
+          "file": "README.md",
+          "line": 7,
+          "snippet": "[![HuggingFace](https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-Scaling%20GIDD-f59a0c)](https://huggingface.co/collections/dvruette/scaling-behavior-of-discrete-diffusion-language-models)"
+        }
+      ],
+      "notes": "Pretrained 3B/10B GIDD checkpoints are published as PyTorch models on HuggingFace under `dvruette/gidd-*` and loadable via `AutoModelForCausalLM.from_pretrained`, enabling inference-only evaluation.",
+      "tool_calls": 1,
+      "duration_s": 10.84,
+      "cost_usd": 0.0639,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Is the training data (Nemotron-CC) pinned to a specific version / preprocessing recipe in the repo, or does the code assume the user reproduces the data pipeline independently?",
+      "verdict": "confirmed",
+      "confidence": 0.95,
+      "evidence": [
+        {
+          "file": "README.md",
+          "line": 99,
+          "snippet": "The exact data split that was used for training, already pre-tokenized and pre-shuffled, is available here: https://huggingface.co/datasets/dvruette/gidd-nemotron-cc-pretok"
+        },
+        {
+          "file": "README.md",
+          "line": 101,
+          "snippet": "Make sure to download this data to your local storage/your GCS bucket and pass the path containing the dataset via the `DATA_FILES` environment variable."
+        },
+        {
+          "file": "README.md",
+          "line": 111,
+          "snippet": "export DATA_FILES=/local/path/to/data/files/"
+        }
+      ],
+      "notes": "The repo pins the training data to a specific pre-tokenized, pre-shuffled Nemotron-CC split hosted on HuggingFace (dvruette/gidd-nemotron-cc-pretok), consumed via the DATA_FILES env var \u2014 users download the pinned artifact rather than reproducing the pipeline.",
+      "tool_calls": 3,
+      "duration_s": 12.29,
+      "cost_usd": 0.1004,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Does the repo expose the interpolation parameter between masked and uniform diffusion (the paper's main methodological novelty) as a first-class configurable in the training config?",
+      "verdict": "confirmed",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "file": "gidd_easydel/diffusion_trainer/diffusion_config.py",
+          "line": 36,
+          "snippet": "hybrid_mixing_scale: float = field(default=1.0, metadata={\\\"help\\\": \\\"Sigmoid scale for the hybrid mixing schedule.\\\"})"
+        },
+        {
+          "file": "gidd_easydel/diffusion_trainer/diffusion_config.py",
+          "line": 37,
+          "snippet": "hybrid_mixing_shift: float = field(default=0.0, metadata={\\\"help\\\": \\\"Sigmoid shift for the hybrid mixing schedule.\\\"})"
+        },
+        {
+          "file": "gidd_easydel/diffusion_trainer/schedule.py",
+          "line": 224,
+          "snippet": "alpha = safe_sigmoid(self.scale * log_snr + self.shift)"
+        },
+        {
+          "file": "gidd_easydel/diffusion_trainer/schedule.py",
+          "line": 226,
+          "snippet": "pi_at_logsnr = pi_at_logsnr.at[..., self.mask_token_id].add((1 - alpha).astype(self.dtype))"
+        }
+      ],
+      "notes": "The `DiffusionConfig` TrainingArguments expose `hybrid_mixing_scale`/`hybrid_mixing_shift` which parameterize the sigmoid \u03b1 interpolating between uniform and masked priors in `HybridMixingDistribution.pi_lambda`, making the masked/uniform interpolation a first-class training config field.",
+      "tool_calls": 4,
+      "duration_s": 17.75,
+      "cost_usd": 0.1617,
+      "crashed": false,
+      "error": null
+    }
+  ],
+  "total_cost_usd": 0.5993,
+  "run_date": "2026-04-21 23:23:58 UTC"
+}

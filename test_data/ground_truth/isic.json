@@ -1,0 +1,46 @@
+{
+  "fixture": "isic",
+  "paper": "Rotemberg et al. 2021 / SIIM-ISIC 2020 Kaggle challenge",
+  "repo_path_staged": "/tmp/isic-demo",
+  "headline_metrics": {
+    "AUC_RF_broken": 0.7153
+  },
+  "honest_metrics_after_fix": {
+    "AUC_RF_fixed": 0.6522
+  },
+  "metric_deltas": {
+    "AUC_RF_delta": -0.0631
+  },
+  "dataset_stats": {
+    "total_rows": 4025,
+    "unique_hashes": 3500,
+    "duplicate_rows": 525,
+    "melanoma_prevalence": 0.12
+  },
+  "deterministic_seed": 42,
+  "expected_verdict": {
+    "failure_class": "Duplicate-image leakage (exact-hash duplicates span train/test folds)",
+    "root_cause_summary": "525 exact-duplicate rows (same image_hash) in the dataset; prepare_data.py calls train_test_split without prior deduplication, so duplicates appear in both folds and Random Forest memorizes them.",
+    "min_confidence": 0.85
+  },
+  "expected_fix": {
+    "files_changed": ["src/prepare_data.py"],
+    "max_lines_changed": 5,
+    "shape_of_fix": "Add `df = df.drop_duplicates(subset=['image_hash'], keep='first').reset_index(drop=True)` BEFORE train_test_split is called."
+  },
+  "expected_dossier_sections": [
+    "claim_tested",
+    "evidence_gathered",
+    "root_cause",
+    "fix_applied",
+    "remaining_uncertainty"
+  ],
+  "acceptance_checks": [
+    "Agent identifies duplicate-image leakage as rank 1 hypothesis within 30s",
+    "Agent runs at least one tool call that counts unique image_hash values",
+    "Verdict confidence >= 0.85",
+    "After fix, agent reports metric_delta where AUC_RF drops by at least 0.04",
+    "Fix is a single-line drop_duplicates addition (not a wholesale refactor)",
+    "Dossier's 'remaining_uncertainty' section acknowledges perceptual-duplicate and patient-level leakage as unaddressed follow-ups"
+  ]
+}

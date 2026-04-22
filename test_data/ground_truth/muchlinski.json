@@ -1,0 +1,42 @@
+{
+  "fixture": "muchlinski",
+  "paper": "Muchlinski et al. 2016 (Political Analysis)",
+  "repo_path_staged": "/tmp/muchlinski-demo",
+  "headline_metrics": {
+    "AUC_RF_broken": 0.9562,
+    "AUC_LR_broken": 0.8091
+  },
+  "honest_metrics_after_fix": {
+    "AUC_RF_fixed": 0.9070,
+    "AUC_LR_fixed": 0.6962
+  },
+  "metric_deltas": {
+    "AUC_RF_delta": -0.0492,
+    "AUC_LR_delta": -0.1129
+  },
+  "deterministic_seed": 42,
+  "expected_verdict": {
+    "failure_class": "Data leakage through imputation (compound: imputation-before-split AND target-in-imputer)",
+    "root_cause_summary": "KNNImputer is fit on the full dataframe before train/test split; target column is still present in the dataframe at fit time. Both conditions are simultaneously true and both must be fixed.",
+    "min_confidence": 0.85
+  },
+  "expected_fix": {
+    "files_changed": ["src/prepare_data.py"],
+    "max_lines_changed": 20,
+    "shape_of_fix": "Drop TARGET and ID columns up front; call train_test_split BEFORE imputer is fit; fit KNNImputer on X_train only; apply the fitted imputer.transform() to X_test."
+  },
+  "expected_dossier_sections": [
+    "claim_tested",
+    "evidence_gathered",
+    "root_cause",
+    "fix_applied",
+    "remaining_uncertainty"
+  ],
+  "acceptance_checks": [
+    "Within 3 minutes, agent identifies at least one hypothesis containing 'imputation' or 'leakage' with rank 1 or 2",
+    "Agent reads prepare_data.py as one of the first 3 tool calls",
+    "Verdict confidence >= 0.85 on the imputation hypothesis",
+    "After fix, agent reports metric_delta where AUC_LR drops by at least 0.08",
+    "PR body contains all 5 canonical dossier sections"
+  ]
+}

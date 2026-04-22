@@ -1,0 +1,15 @@
+{"type":"session_start","run_id":"aborted-001","ts":"2026-04-23T09:00:00.000Z","seq":0,"data":{"mode":"investigate"}}
+{"type":"claim_summary","run_id":"aborted-001","ts":"2026-04-23T09:00:02.100Z","seq":1,"data":{"claim":"Model X achieves AUC 0.85 on Benchmark Y."}}
+{"type":"hypothesis","run_id":"aborted-001","ts":"2026-04-23T09:00:04.000Z","seq":2,"data":{"id":"h1","rank":1,"name":"Imputation-before-split leakage","confidence":0.50,"reason":"Starting with the most common pattern."}}
+{"type":"hypothesis","run_id":"aborted-001","ts":"2026-04-23T09:00:05.000Z","seq":3,"data":{"id":"h2","rank":2,"name":"Feature engineering mismatch","confidence":0.45,"reason":"Derived features not in paper."}}
+{"type":"hypothesis","run_id":"aborted-001","ts":"2026-04-23T09:00:06.000Z","seq":4,"data":{"id":"h3","rank":3,"name":"Entity split missing","confidence":0.40,"reason":"Panel data; IDs may leak."}}
+{"type":"hypothesis","run_id":"aborted-001","ts":"2026-04-23T09:00:06.800Z","seq":5,"data":{"id":"h4","rank":4,"name":"Metric implementation bug","confidence":0.25,"reason":"Custom AUC in repo."}}
+{"type":"tool_call","run_id":"aborted-001","ts":"2026-04-23T09:00:07.200Z","seq":6,"data":{"id":"toolu_ab1","name":"Read","input":{"file_path":"/tmp/obscure-repo/src/prepare.py"}}}
+{"type":"tool_result","run_id":"aborted-001","ts":"2026-04-23T09:00:07.500Z","seq":7,"data":{"id":"toolu_ab1","name":"Read","output":"...","is_error":false,"duration_ms":110}}
+{"type":"check","run_id":"aborted-001","ts":"2026-04-23T09:00:08.000Z","seq":8,"data":{"id":"c1","hypothesis_id":"h1","description":"Inspect prepare.py.","method":"Read"}}
+{"type":"finding","run_id":"aborted-001","ts":"2026-04-23T09:00:09.100Z","seq":9,"data":{"id":"f1","check_id":"c1","result":"Weak evidence: imputation order is obscured by a custom pipeline.","supports":["h1"],"refutes":[]}}
+{"type":"hypothesis_update","run_id":"aborted-001","ts":"2026-04-23T09:00:09.500Z","seq":10,"data":{"id":"h1","confidence":0.72,"reason_delta":"Partial — needs a deeper trace."}}
+{"type":"tool_call","run_id":"aborted-001","ts":"2026-04-23T09:00:10.000Z","seq":11,"data":{"id":"toolu_ab2","name":"Grep","input":{"pattern":"train_test_split","path":"/tmp/obscure-repo"}}}
+{"type":"tool_result","run_id":"aborted-001","ts":"2026-04-23T09:00:10.400Z","seq":12,"data":{"id":"toolu_ab2","name":"Grep","output":"src/prepare.py:45:    X_train, X_test = ts.split(...)\nsrc/utils/cv.py:12:def ts(): ...\n","is_error":false,"duration_ms":91}}
+{"type":"aborted","run_id":"aborted-001","ts":"2026-04-23T09:03:30.000Z","seq":13,"data":{"reason":"turn_cap","detail":"Reached 30-turn cap without any single hypothesis exceeding the 0.85 confidence threshold. Best candidate remains H1 at 0.72. Recommend a narrower Quick Check to disambiguate H1 vs H2."}}
+{"type":"session_end","run_id":"aborted-001","ts":"2026-04-23T09:03:30.200Z","seq":14,"data":{"ok":false,"total_turns":30,"cost_usd":4.87,"duration_ms":210200}}

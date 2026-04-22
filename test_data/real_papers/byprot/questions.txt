@@ -1,0 +1,9 @@
+Does the evaluation pipeline explicitly filter sequences that were in UniRef50 (the ESM2 pretraining corpus) out of downstream test sets, or does it rely on the upstream data split as-is without such filtering?
+
+Is there a configurable sequence-identity threshold (e.g., MMseqs2 / CD-HIT clustering) applied when constructing train/validation/test splits for CATH-based inverse folding, or does the repo trust the default random split?
+
+Does the repo pin the version or commit of any external pretrained models it loads (ESM2, AlphaFold weights, etc.), or does it fetch from an unpinned source that could silently drift?
+
+For protein design evaluation, does the metric implementation (sequence recovery, perplexity, structural self-consistency) match the cited reference method or is it a custom variant?
+
+Are there any tests or scripts in the repo that detect / warn about train-test sequence overlap, or is this left entirely to the user to audit manually?

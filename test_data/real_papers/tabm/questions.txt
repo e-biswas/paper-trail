@@ -1,0 +1,5 @@
+Is the train/validation/test split leak-free? Any normalization or feature engineering fit on the full dataset before splitting?
+
+Does the repo use group-aware splits when the underlying benchmark has a grouping column, or does it rely on random row-level splits?
+
+Are model checkpoints evaluated on the test set multiple times with different hyperparameters (test-set contamination via selection)?

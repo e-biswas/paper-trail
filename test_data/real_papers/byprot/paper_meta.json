@@ -1,0 +1,19 @@
+{
+  "source_url": "https://www.biorxiv.org/content/10.1101/2024.07.23.604678v1 (local PDF ingested \u2014 Cloudflare block worked around by user-provided file)",
+  "source_type": "pdf",
+  "title": "Beware of Data Leakage from Protein LLM Pretraining",
+  "authors": [
+    "Leon Hermann",
+    "Tobias Fiedler",
+    "Hoang An Nguyen",
+    "Melania Nowicka",
+    "Jakub M. Bartoszewicz"
+  ],
+  "abstract": "(see paper_full.md \u2014 begins around line 8)",
+  "sections_count": 0,
+  "markdown_chars": 36283,
+  "ingest_duration_s": 0.0,
+  "ingested_at": "2026-04-22T01:25:36+00:00",
+  "ingest_status": "ok",
+  "local_pdf": "/Users/eb/Downloads/experiments/paper-trail/test_data/real_papers/byprot/2024.07.23.604678v1.full.pdf"
+}

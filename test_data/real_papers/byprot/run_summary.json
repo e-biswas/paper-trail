@@ -1,0 +1,197 @@
+{
+  "paper": {
+    "source_url": "https://www.biorxiv.org/content/10.1101/2024.07.23.604678v1.full.pdf",
+    "ingest_status": "unavailable",
+    "reason": "bioRxiv is behind Cloudflare bot protection; both httpx and curl User-Agent spoofing were blocked. Workaround: download the PDF manually in a browser and pass a local file path to ingest().",
+    "ingest_duration_s": 3.0
+  },
+  "repo": {
+    "url": "https://github.com/BytedProtein/ByProt.git",
+    "local_path": "/tmp/real-byprot",
+    "clone_duration_s": 0.86,
+    "py_file_count": 74,
+    "ipynb_file_count": 1,
+    "clone_size_mb": 2.68
+  },
+  "checks": [
+    {
+      "question": "Does the evaluation pipeline explicitly filter sequences that were in UniRef50 (the ESM2 pretraining corpus) out of downstream test sets, or does it rely on the upstream data split as-is without such filtering?",
+      "verdict": "refuted",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "file": "src/byprot/datamodules/parallel_datamodule.py",
+          "line": 175,
+          "snippet": "test = ParallelDataset(... split=(self.hparams.test_split) ...)"
+        },
+        {
+          "file": "src/byprot/datamodules/TS50_datamodule.py",
+          "line": 115,
+          "snippet": "test, alphabet = Struct2SeqDataset(... chain_set_splits_json=self.hparams.chain_set_splits_json, split=(self.hparams.test_split, ))"
+        },
+        {
+          "file": "src/byprot/datamodules/datasets/multichain.py",
+          "line": 58,
+          "snippet": "df_filtered = df.loc[:, ['CHAINID', 'RESOLUTION', 'CLUSTER']]"
+        },
+        {
+          "file": "src/byprot/tasks/fixedbb/cmlm.py",
+          "line": 284,
+          "snippet": "# In testing, remove target tokens to ensure no data leakage!"
+        }
+      ],
+      "notes": "\"Datamodules consume upstream splits (chain_set_splits.json / CATH clusters / test_split) as-is with no UniRef50 overlap filtering; the only 'leakage' guard is masking target tokens at inference, unrelated to pretraining-corpus contamination.",
+      "tool_calls": 4,
+      "duration_s": 22.33,
+      "cost_usd": 0.2087,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Is there a configurable sequence-identity threshold (e.g., MMseqs2 / CD-HIT clustering) applied when constructing train/validation/test splits for CATH-based inverse folding, or does the repo trust the default random split?",
+      "verdict": "refuted",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "file": "scripts/download_cath.sh",
+          "line": 2,
+          "snippet": "wget -r -nd -np http://people.csail.mit.edu/ingraham/graph-protein-design/data/cath/ -P data/cath_4.2"
+        },
+        {
+          "file": "scripts/download_cath.sh",
+          "line": 7,
+          "snippet": "wget ... https://dl.fbaipublicfiles.com/fair-esm/data/cath4.3_topologysplit_202206/split.jsonl -P data/cath_4.3"
+        },
+        {
+          "file": "src/byprot/datamodules/datasets/cath.py",
+          "line": 23,
+          "snippet": "chain_set_splits_json='chain_set_splits.json',"
+        },
+        {
+          "file": "src/byprot/datamodules/datasets/cath.py",
+          "line": 95,
+          "snippet": "with open(chain_set_splits_json_fullpath) as f: dataset_splits = json.load(f)"
+        }
+      ],
+      "notes": "Splits are not random and not re-clustered in-repo \u2014 they are loaded verbatim from pre-computed upstream files (Ingraham CATH 4.2 and FAIR-ESM cath4.3_topologysplit_202206), so there is no configurable MMseqs2/CD-HIT identity threshold in this codebase.",
+      "tool_calls": 3,
+      "duration_s": 16.48,
+      "cost_usd": 0.0755,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Does the repo pin the version or commit of any external pretrained models it loads (ESM2, AlphaFold weights, etc.), or does it fetch from an unpinned source that could silently drift?",
+      "verdict": "refuted",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "file": ".gitmodules",
+          "line": 3,
+          "snippet": "url = https://github.com/facebookresearch/esm.git"
+        },
+        {
+          "file": "src/byprot/models/fixedbb/lm_design/modules/esm_adapter.py",
+          "line": 59,
+          "snippet": "pretrained_model, alphabet = esm.pretrained.load_model_and_alphabet_hub(name)"
+        },
+        {
+          "file": "src/byprot/models/fixedbb/lm_design/modules/esm2_adapter.py",
+          "line": 35,
+          "snippet": "pretrained_model, alphabet = esm.pretrained.load_model_and_alphabet_hub(name)"
+        },
+        {
+          "file": "src/byprot/tasks/fixedbb/cmlm.py",
+          "line": 127,
+          "snippet": "self._folding_model = esm.pretrained.esmfold_v1().eval()"
+        },
+        {
+          "file": "env.yml",
+          "line": 70,
+          "snippet": "- fair-esm==2.0.1"
+        },
+        {
+          "file": "install.sh",
+          "line": 4,
+          "snippet": "pip install -e vendor/esm"
+        }
+      ],
+      "notes": "\"ESM weights are fetched via `esm.pretrained.load_model_and_alphabet_hub`/`esmfold_v1()` from Facebook's unpinned hub URLs, and the `vendor/esm` submodule lacks a pinned commit in `.gitmodules`, so both the code and weight sources can silently drift (only the `fair-esm` pip package is version-pinned).",
+      "tool_calls": 3,
+      "duration_s": 16.39,
+      "cost_usd": 0.1009,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "For protein design evaluation, does the metric implementation (sequence recovery, perplexity, structural self-consistency) match the cited reference method or is it a custom variant?",
+      "verdict": "unclear",
+      "confidence": 0.55,
+      "evidence": [
+        {
+          "file": "src/byprot/tasks/fixedbb/cmlm.py",
+          "line": 320,
+          "snippet": "recovery_acc_per_sample = metrics.accuracy_per_sample(pred_tokens, tokens, mask=coord_mask)"
+        },
+        {
+          "file": "src/byprot/tasks/fixedbb/cmlm.py",
+          "line": 324,
+          "snippet": "recovery_acc = metrics.accuracy(pred_tokens, tokens, mask=coord_mask)"
+        },
+        {
+          "file": "src/byprot/tasks/fixedbb/cmlm.py",
+          "line": 435,
+          "snippet": "output = self._folding_model.infer(sequences=pred_seqs, num_recycles=4)"
+        },
+        {
+          "file": "src/byprot/tasks/fixedbb/cmlm.py",
+          "line": 440,
+          "snippet": "_, sc_tmscore = metrics.calc_tm_score(..."
+        },
+        {
+          "file": "src/byprot/tasks/fixedbb/designer.py",
+          "line": 167,
+          "snippet": "print(f\\\"recovery: {rec}\\\")"
+        }
+      ],
+      "notes": "\"Sequence recovery uses standard masked accuracy and scTM uses ESMFold refolding + TM-score (matches conventional ESM-IF / ProteinMPNN self-consistency protocol), but no explicit perplexity metric was found in the evaluation path and no inline citation to a specific reference method is given, so it cannot be verified whether this is an exact reimplementation or a minor custom variant.",
+      "tool_calls": 4,
+      "duration_s": 30.96,
+      "cost_usd": 0.1153,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Are there any tests or scripts in the repo that detect / warn about train-test sequence overlap, or is this left entirely to the user to audit manually?",
+      "verdict": "refuted",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "file": "configs/experiment/fixedbb/lm_design_esm2_650m_gvptrans_cath4.3.yaml",
+          "line": 8,
+          "snippet": "# so it could be at the risk of data leakage if evaluating on cath 4.2"
+        },
+        {
+          "file": "configs/experiment/fixedbb/lm_design_esm2_150m_gvptrans_cath4.3.yaml",
+          "line": 8,
+          "snippet": "# so it could be at the risk of data leakage if evaluating on cath 4.2"
+        },
+        {
+          "file": "src/byprot/tasks/fixedbb/cmlm.py",
+          "line": 284,
+          "snippet": "# In testing, remove target tokens to ensure no data leakage!"
+        }
+      ],
+      "notes": "No tests/scripts detect train-test sequence overlap; the only mentions of leakage are a human-written warning comment in config files and a token-masking comment in cmlm.py, leaving overlap auditing to the user.",
+      "tool_calls": 3,
+      "duration_s": 14.97,
+      "cost_usd": 0.0763,
+      "crashed": false,
+      "error": null
+    }
+  ],
+  "n_verdicts": 5,
+  "n_crashes": 0,
+  "total_cost_usd": 0.5767,
+  "run_date": "2026-04-22 01:18:08 UTC"
+}

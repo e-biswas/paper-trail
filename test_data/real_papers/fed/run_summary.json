@@ -1,0 +1,117 @@
+{
+  "target": "fed",
+  "paper": {
+    "title": "Unsupervised Evaluation of Interactive Dialog with DialoGPT",
+    "authors": [
+      "Shikib Mehri",
+      "Maxine Eskenazi"
+    ],
+    "arxiv_id": "2006.12719",
+    "markdown_chars": 47369,
+    "sections": 24,
+    "ingest_duration_s": 0.0
+  },
+  "repo": {
+    "url": "https://github.com/Shikib/fed.git",
+    "local_path": "/tmp/real-fed",
+    "clone_duration_s": 0.64,
+    "py_file_count": 2,
+    "ipynb_file_count": 0,
+    "clone_size_mb": 0.04
+  },
+  "checks": [
+    {
+      "question": "Does the evaluation script match the paper's reported numbers exactly, or are there post-processing differences?",
+      "verdict": "unclear",
+      "confidence": 0.3,
+      "evidence": [
+        {
+          "file": "README.md",
+          "line": 1,
+          "snippet": "# FED"
+        },
+        {
+          "file": "fed.py",
+          "line": 1,
+          "snippet": "(not inspected)"
+        }
+      ],
+      "notes": "Repo contains only fed.py/fed_demo.py/README.md with no explicit evaluation script or paper-number comparison harness; question is out of scope without additional files (e.g., reproduction scripts or reference metrics) to compare against.",
+      "tool_calls": 3,
+      "duration_s": 11.21,
+      "cost_usd": 0.0617,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Are there any hard-coded model checkpoints or tokenizer versions that could cause the results to drift over time?",
+      "verdict": "confirmed",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "file": "fed.py",
+          "line": 23,
+          "snippet": "def load_models(name=\\\"microsoft/DialoGPT-large\\\"):"
+        },
+        {
+          "file": "fed_demo.py",
+          "line": 4,
+          "snippet": "model, tokenizer = fed.load_models(\\\"microsoft/DialoGPT-large\\\")"
+        },
+        {
+          "file": "fed.py",
+          "line": 24,
+          "snippet": "tokenizer = AutoTokenizer.from_pretrained(name)"
+        },
+        {
+          "file": "fed.py",
+          "line": 85,
+          "snippet": "hs = score(conversation + \\\" <|endoftext|> \\\" + m, tokenizer, model)"
+        }
+      ],
+      "notes": "The default model/tokenizer is hard-coded to the HuggingFace `microsoft/DialoGPT-large` checkpoint (with a `<|endoftext|>` token assumption), so upstream changes to that repo or the transformers API could cause scoring drift over time.",
+      "tool_calls": 1,
+      "duration_s": 9.0,
+      "cost_usd": 0.0502,
+      "crashed": false,
+      "error": null
+    },
+    {
+      "question": "Does this repo contain an eval.py or analogous entrypoint? If so, what does it compute?",
+      "verdict": "confirmed",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "file": "fed_demo.py",
+          "line": 8,
+          "snippet": "scores = fed.evaluate(conversation, "
+        },
+        {
+          "file": "fed.py",
+          "line": 42,
+          "snippet": "def evaluate(conversation, model, tokenizer):"
+        },
+        {
+          "file": "fed.py",
+          "line": 97,
+          "snippet": "scores[metric] = (low_score - high_score)"
+        },
+        {
+          "file": "fed.py",
+          "line": 160,
+          "snippet": "scores[metric] = (low_score - high_score)"
+        }
+      ],
+      "notes": "\"No eval.py, but `fed.py` defines `evaluate()` (called from `fed_demo.py`) which computes turn- and dialog-level FED metric scores as the difference between a language model's loss on low-quality versus high-quality follow-up utterances for each metric.",
+      "tool_calls": 3,
+      "duration_s": 11.97,
+      "cost_usd": 0.0647,
+      "crashed": false,
+      "error": null
+    }
+  ],
+  "n_verdicts": 3,
+  "n_crashes": 0,
+  "total_cost_usd": 0.1766,
+  "run_date": "2026-04-21 23:25:54 UTC"
+}

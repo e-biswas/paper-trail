@@ -1,0 +1,11 @@
+## Verdict:
+verdict: refuted
+confidence: 0.94
+evidence:
+  - file: src/prepare_data.py
+    line: 28
+    snippet: "df_imputed = pd.DataFrame(imputer.fit_transform(df), columns=df.columns, index=df.index)"
+  - file: src/prepare_data.py
+    line: 35
+    snippet: "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=RANDOM_STATE, stratify=y)"
+notes: "Imputation is fit on the full dataframe (line 28) before train_test_split (line 35). The imputer sees test-set rows; this is data leakage, not fit-on-train-only."

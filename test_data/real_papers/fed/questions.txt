@@ -1,0 +1,5 @@
+Does the evaluation script match the paper's reported numbers exactly, or are there post-processing differences?
+
+Are there any hard-coded model checkpoints or tokenizer versions that could cause the results to drift over time?
+
+Does this repo contain an eval.py or analogous entrypoint? If so, what does it compute?

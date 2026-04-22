@@ -229,10 +229,18 @@ async def _load_paper_context(paper_url: str | None) -> str:
 def _build_session_context_block(session_id: str | None, exclude_run_id: str) -> str:
     """Build a 'prior findings in this session' context block.
 
+    Two kinds of content land here:
+
+    - **Verdict summary** for every prior run that produced one — carries
+      the established facts forward so the conductor doesn't re-investigate
+      settled questions.
+    - **Warm-start block** for the immediately-preceding run IFF it was
+      aborted (typically at `turn_cap`). This surfaces the hypotheses that
+      had been generated, the checks that fired, and the files already
+      inspected — so the follow-up run picks up with warm priors instead
+      of starting cold. See `summarize_partial_progress` in `runs.py`.
+
     Returns an empty string if there's no session or no prior runs.
-    Otherwise returns a compact markdown summary of each prior run's verdict,
-    fix, and PR, suitable for prepending to the user prompt so the conductor
-    has continuity across turns in the same chat session.
     """
     if not session_id:
         return ""
@@ -272,10 +280,128 @@ def _build_session_context_block(session_id: str | None, exclude_run_id: str) ->
             )
         if m.pr_url:
             lines.append(f"- PR opened: {m.pr_url}")
+        if not m.verdict_summary and _is_aborted(m):
+            label = m.aborted_reason or m.stop_reason or "no_verdict"
+            lines.append(f"- status: aborted ({label})")
         lines.append("")
     lines.append("---")
     lines.append("")
+
+    # Warm-start block — only the immediate prior run, only when aborted.
+    last_prior = prior[-1]
+    if _is_aborted(last_prior):
+        warm = _build_warm_start_block(last_prior)
+        if warm:
+            lines.append(warm)
+            lines.append("")
+
     return "\n".join(lines)
+
+
+def _is_aborted(meta: "RunMeta") -> bool:
+    """True iff the run terminated without a verdict for a user-visible reason.
+
+    The orchestrator synthesizes an `aborted` envelope in this case (see
+    `_run_sdk`), so either `aborted_reason` is set or `stop_reason` is one
+    of the terminal-not-success codes.
+    """
+    if meta.aborted_reason:
+        return True
+    if meta.stop_reason in {
+        "turn_cap", "no_metric_delta", "agent_requested",
+        "user_abort", "cancelled", "error",
+    }:
+        return True
+    # Finished but not ok, no verdict → likely an abort we didn't tag.
+    if meta.ok is False and not meta.verdict_summary:
+        return True
+    return False
+
+
+def _build_warm_start_block(meta: "RunMeta") -> str:
+    """Produce a '## Partial progress from the previous aborted attempt' block.
+
+    Pulls hypotheses + checks + files-inspected from the prior run's
+    persisted events.jsonl via `RunStore.summarize_partial_progress`.
+    Returns an empty string if no meaningful progress was made (e.g. the
+    run aborted before emitting any hypothesis).
+    """
+    try:
+        store = get_store()
+        partial = store.summarize_partial_progress(meta.run_id)
+    except Exception as exc:
+        log.warning("could not summarize partial progress for %s: %s", meta.run_id, exc)
+        return ""
+    if not partial:
+        return ""
+
+    hypotheses = partial.get("hypotheses") or []
+    checks = partial.get("checks") or []
+    files = partial.get("files_inspected") or []
+    # Skip if we have nothing structural to hand forward.
+    if not hypotheses and not checks and not files:
+        return ""
+
+    reason = meta.aborted_reason or meta.stop_reason or "unknown"
+
+    out: list[str] = [
+        "## Partial progress from the previous aborted attempt in this session",
+        "",
+        f"The previous run (`{meta.run_id}`, mode={meta.mode}) stopped at "
+        f"`{reason}` after {meta.total_turns} turn(s) without reaching a verdict. "
+        "The structured progress below was already produced — treat it as warm priors, "
+        "not ground truth. You MAY deprioritize any item if fresh evidence contradicts "
+        "it. Do NOT repeat checks that already fired; advance from where the previous run "
+        "left off.",
+        "",
+    ]
+
+    if hypotheses:
+        out.append("**Hypotheses generated previously (top by last-known confidence):**")
+        out.append("")
+        for h in hypotheses:
+            hid = h.get("id") or "?"
+            rank = h.get("rank") or "?"
+            name = h.get("name") or "(unnamed)"
+            conf = h.get("confidence", 0.0)
+            reason_text = h.get("reason") or ""
+            delta = h.get("reason_delta") or ""
+            line = f"- {hid} (rank {rank}, confidence {conf:.2f}) — {name}"
+            out.append(line)
+            if reason_text:
+                out.append(f"  - reasoning: {reason_text}")
+            if delta:
+                out.append(f"  - last update: {delta}")
+        out.append("")
+
+    if checks:
+        out.append("**Checks already executed (do not repeat):**")
+        out.append("")
+        for c in checks:
+            cid = c.get("id") or "?"
+            hid = c.get("hypothesis_id") or "?"
+            desc = c.get("description") or ""
+            method = c.get("method") or ""
+            finding = c.get("finding") or ""
+            out.append(f"- {cid} on {hid} — {desc} ({method})")
+            if finding:
+                out.append(f"  - finding: {finding}")
+        out.append("")
+
+    if files:
+        out.append("**Files already inspected:**")
+        out.append("")
+        out.extend(f"- `{f}`" for f in files)
+        out.append("")
+
+    out.append(
+        "Pick up from the highest-ranked un-ratified hypothesis. If none looks "
+        "promising after a brief sanity check, you MAY generate additional "
+        "hypotheses — but emit them as `Hypothesis N:` with N continuing from "
+        "the previous ranking, not starting over at 1."
+    )
+    out.append("---")
+    return "\n".join(out)
 
 
 def _load_paper_context_fallback(url: str) -> str:

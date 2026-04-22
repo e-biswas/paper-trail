@@ -81,6 +81,12 @@ class RunMeta:
     duration_ms: int = 0
     ok: bool | None = None
     pr_url: str | None = None
+    # Termination class — lets follow-up runs decide whether to splice in
+    # warm-start context. Populated from the orchestrator's synthesized
+    # `aborted` envelope + session_end.stop_reason.
+    stop_reason: str | None = None       # from session_end.data.stop_reason
+    aborted_reason: str | None = None    # from aborted.data.reason
+    aborted_detail: str | None = None    # from aborted.data.detail
     # Derived / cached highlights so we can splice context into follow-up prompts
     # without re-parsing the entire event log each time.
     verdict_summary: str | None = None
@@ -193,6 +199,13 @@ class RunStore:
             })
         elif etype == "pr_opened":
             meta.pr_url = data.get("url")
+        elif etype == "aborted":
+            reason = data.get("reason")
+            detail = data.get("detail")
+            if isinstance(reason, str):
+                meta.aborted_reason = reason
+            if isinstance(detail, str):
+                meta.aborted_detail = detail
         elif etype == "phase_end":
             phase = data.get("phase")
             duration_ms = data.get("duration_ms")
@@ -204,6 +217,9 @@ class RunStore:
             meta.total_turns = int(data.get("total_turns", 0) or 0)
             meta.duration_ms = int(data.get("duration_ms", 0) or 0)
             meta.finished_at = _now_iso()
+            stop_reason = data.get("stop_reason")
+            if isinstance(stop_reason, str):
+                meta.stop_reason = stop_reason
 
         self._save_meta(meta)
 
@@ -329,6 +345,120 @@ class RunStore:
         runs = self.list_session_runs(session_id)
         runs.sort(key=lambda m: m.created_at)
         return runs[-limit:]
+
+    def summarize_partial_progress(
+        self, run_id: str, *, max_hypotheses: int = 3, max_checks: int = 4,
+        max_files: int = 8,
+    ) -> dict[str, Any] | None:
+        """Walk `run_id`'s events.jsonl and return a compact summary of what
+        the agent produced before it stopped.
+
+        Used when a session's immediate prior run was aborted (typically at
+        `turn_cap`) to build a warm-start block for the follow-up prompt.
+        Returns None when the run has no persisted events.
+
+        Shape:
+            {
+              "hypotheses": [
+                {"id","rank","name","confidence","reason","reason_delta"},
+                ...
+              ],
+              "checks": [
+                {"id","hypothesis_id","description","method","finding": "..."},
+                ...
+              ],
+              "files_inspected": ["src/prepare_data.py", ...],
+              "last_event_type": "tool_call" | "hypothesis" | ...,
+              "total_events": <int>,
+            }
+        """
+        hypotheses: dict[str, dict[str, Any]] = {}
+        checks_by_id: dict[str, dict[str, Any]] = {}
+        files_seen: list[str] = []
+        files_set: set[str] = set()
+        last_type: str | None = None
+        total = 0
+
+        for ev in self.iter_events(run_id):
+            total += 1
+            etype = ev.get("type")
+            data = ev.get("data") or {}
+            if not isinstance(etype, str):
+                continue
+            if etype != "cost_update" and etype != "raw_text_delta":
+                # These are high-cardinality + carry no structural meaning;
+                # leave `last_type` pointing at the last *meaningful* event.
+                last_type = etype
+
+            if etype == "hypothesis":
+                hid = str(data.get("id") or "")
+                if not hid:
+                    continue
+                hypotheses[hid] = {
+                    "id": hid,
+                    "rank": int(data.get("rank") or 0),
+                    "name": str(data.get("name") or ""),
+                    "confidence": float(data.get("confidence") or 0.0),
+                    "reason": str(data.get("reason") or ""),
+                    "reason_delta": "",
+                }
+            elif etype == "hypothesis_update":
+                hid = str(data.get("id") or "")
+                if hid in hypotheses:
+                    try:
+                        hypotheses[hid]["confidence"] = float(
+                            data.get("confidence") or hypotheses[hid]["confidence"]
+                        )
+                    except (TypeError, ValueError):
+                        pass
+                    hypotheses[hid]["reason_delta"] = str(data.get("reason_delta") or "")
+            elif etype == "check":
+                cid = str(data.get("id") or "")
+                if not cid:
+                    continue
+                checks_by_id[cid] = {
+                    "id": cid,
+                    "hypothesis_id": str(data.get("hypothesis_id") or ""),
+                    "description": str(data.get("description") or ""),
+                    "method": str(data.get("method") or ""),
+                    "finding": None,
+                }
+            elif etype == "finding":
+                cid = str(data.get("check_id") or "")
+                if cid in checks_by_id:
+                    checks_by_id[cid]["finding"] = str(data.get("result") or "")
+            elif etype == "tool_call":
+                tool_input = data.get("input") or {}
+                # Capture file-path hints; many tools (Read/Edit/Write/Grep)
+                # put the path under one of these keys.
+                for key in ("file_path", "path", "file"):
+                    val = tool_input.get(key) if isinstance(tool_input, dict) else None
+                    if isinstance(val, str) and val and val not in files_set:
+                        files_seen.append(val)
+                        files_set.add(val)
+                        break
+
+        if total == 0:
+            return None
+
+        # Rank-sort hypotheses by last-known confidence (desc); cap.
+        ranked = sorted(
+            hypotheses.values(),
+            key=lambda h: (-float(h["confidence"]), h["rank"]),
+        )[:max_hypotheses]
+
+        # Checks: prefer ones that have a finding; cap.
+        checks_list = list(checks_by_id.values())
+        checks_list.sort(key=lambda c: (c["finding"] is None, c["id"]))
+        checks_list = checks_list[:max_checks]
+
+        return {
+            "hypotheses": ranked,
+            "checks": checks_list,
+            "files_inspected": files_seen[:max_files],
+            "last_event_type": last_type,
+            "total_events": total,
+        }
 
     # ------------------------------------------------------------------ #
     # Internals

@@ -464,6 +464,40 @@ class RunStore:
     # Internals
     # ------------------------------------------------------------------ #
 
+    def delete_session(self, session_id: str) -> dict[str, Any]:
+        """Hard-delete a session and every run it references.
+
+        Removes:
+          - {root}/sessions/{session_id}.json
+          - {root}/{run_id}/ (events.jsonl + meta.json) for each run in the
+            session's `run_ids` list.
+
+        Returns a summary dict with `removed_runs` count. Idempotent — calling
+        on a missing session is a no-op and returns `removed_runs=0`.
+        """
+        import shutil
+
+        sp = self.session_path(session_id)
+        if not sp.exists():
+            return {"session_id": session_id, "removed_runs": 0, "existed": False}
+
+        try:
+            doc = self.load_session(session_id)
+        except Exception:
+            doc = {"run_ids": []}
+        run_ids = list(doc.get("run_ids") or [])
+        removed = 0
+        for rid in run_ids:
+            rd = self.run_dir(rid)
+            if rd.exists():
+                shutil.rmtree(rd, ignore_errors=True)
+                removed += 1
+        try:
+            sp.unlink()
+        except FileNotFoundError:
+            pass
+        return {"session_id": session_id, "removed_runs": removed, "existed": True}
+
     def _save_meta(self, meta: RunMeta) -> None:
         _atomic_write(
             self.meta_path(meta.run_id),

@@ -8,6 +8,9 @@ import {
   PinOff,
   Loader2,
   ShieldCheck,
+  Trash2,
+  Check,
+  X,
 } from "lucide-react"
 import type { ChatTurn } from "../../state/chatStore"
 import type { SessionList, SessionSummary } from "../../types"
@@ -19,6 +22,7 @@ interface Props {
   isRunning: boolean
   onNewSession: () => void
   onLoadSession: (session_id: string) => void
+  onDeleteSession?: (session_id: string) => void | Promise<void>
 }
 
 /** All sessions grouped by pinned/recent. Current session highlighted. */
@@ -28,10 +32,12 @@ export function Sidebar({
   isRunning,
   onNewSession,
   onLoadSession,
+  onDeleteSession,
 }: Props) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [usage, setUsage] = useState<{ total: number; n_runs: number } | null>(null)
   const [busyPin, setBusyPin] = useState<string | null>(null)
+  const [busyDelete, setBusyDelete] = useState<string | null>(null)
 
   async function refresh() {
     try {
@@ -63,6 +69,17 @@ export function Sidebar({
       // best-effort; refresh() will pull truth next tick
     } finally {
       setBusyPin(null)
+    }
+  }
+
+  async function handleDelete(sid: string) {
+    if (!onDeleteSession) return
+    setBusyDelete(sid)
+    try {
+      await onDeleteSession(sid)
+      await refresh()
+    } finally {
+      setBusyDelete(null)
     }
   }
 
@@ -175,8 +192,10 @@ export function Sidebar({
             sessions={pinned}
             activeId={sessionId}
             busyPin={busyPin}
+            busyDelete={busyDelete}
             onOpen={onLoadSession}
             onPin={togglePin}
+            onDelete={onDeleteSession ? handleDelete : undefined}
             disabled={isRunning}
           />
         )}
@@ -186,8 +205,10 @@ export function Sidebar({
           sessions={recent.filter((s) => s.session_id !== sessionId)}
           activeId={sessionId}
           busyPin={busyPin}
+          busyDelete={busyDelete}
           onOpen={onLoadSession}
           onPin={togglePin}
+          onDelete={onDeleteSession ? handleDelete : undefined}
           disabled={isRunning}
           emptyHint={
             recent.length === 0 && pinned.length === 0
@@ -216,8 +237,10 @@ function SessionGroup({
   sessions,
   activeId,
   busyPin,
+  busyDelete,
   onOpen,
   onPin,
+  onDelete,
   disabled,
   emptyHint,
 }: {
@@ -225,8 +248,10 @@ function SessionGroup({
   sessions: SessionSummary[]
   activeId: string
   busyPin: string | null
+  busyDelete: string | null
   onOpen: (sid: string) => void
   onPin: (sid: string, currentlyPinned: boolean) => void
+  onDelete?: (sid: string) => void | Promise<void>
   disabled: boolean
   emptyHint?: string
 }) {
@@ -249,8 +274,10 @@ function SessionGroup({
               session={s}
               active={s.session_id === activeId}
               busyPin={busyPin === s.session_id}
+              busyDelete={busyDelete === s.session_id}
               onOpen={() => onOpen(s.session_id)}
               onPin={() => onPin(s.session_id, !!s.pinned)}
+              onDelete={onDelete ? () => onDelete(s.session_id) : undefined}
               disabled={disabled}
             />
           ))}
@@ -264,17 +291,25 @@ function SessionRow({
   session,
   active,
   busyPin,
+  busyDelete,
   onOpen,
   onPin,
+  onDelete,
   disabled,
 }: {
   session: SessionSummary
   active: boolean
   busyPin: boolean
+  busyDelete: boolean
   onOpen: () => void
   onPin: () => void
+  onDelete?: () => void | Promise<void>
   disabled: boolean
 }) {
+  // Inline two-step confirm: first trash-click flips the row into "Delete?"
+  // mode with ✓ / ✗ buttons. No modal — keeps the sidebar aesthetic intact.
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
   const lastRun = session.runs[session.runs.length - 1]
   const title =
     session.title ||
@@ -296,12 +331,13 @@ function SessionRow({
         active
           ? "border-status-checking/60 bg-status-checking/10"
           : "border-transparent hover:border-border hover:bg-accent/30",
+        confirmDelete && "border-status-refuted/50 bg-status-refuted/5",
       )}
     >
       <button
         type="button"
         onClick={onOpen}
-        disabled={disabled}
+        disabled={disabled || confirmDelete}
         className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left disabled:cursor-not-allowed disabled:opacity-60"
         title={title}
       >
@@ -323,31 +359,89 @@ function SessionRow({
         </div>
       </button>
 
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          onPin()
-        }}
-        disabled={busyPin}
-        className={cn(
-          "shrink-0 rounded p-1 text-muted-fg",
-          "hover:bg-accent/50 hover:text-fg",
-          session.pinned
-            ? "opacity-100 text-status-verdict"
-            : "opacity-0 group-hover:opacity-100",
-          busyPin && "opacity-100",
-        )}
-        title={session.pinned ? "Unpin" : "Pin to top"}
-      >
-        {busyPin ? (
-          <Loader2 size={11} className="animate-spin" />
-        ) : session.pinned ? (
-          <PinOff size={11} />
-        ) : (
-          <Pin size={11} />
-        )}
-      </button>
+      {confirmDelete ? (
+        <div
+          className="flex shrink-0 items-center gap-0.5"
+          role="alertdialog"
+          aria-label={`Delete ${title}?`}
+        >
+          <span className="mr-1 text-[10px] text-status-refuted">Delete?</span>
+          <button
+            type="button"
+            onClick={async (e) => {
+              e.stopPropagation()
+              await onDelete?.()
+              setConfirmDelete(false)
+            }}
+            disabled={busyDelete}
+            className="rounded p-1 text-status-refuted hover:bg-status-refuted/15 disabled:opacity-60"
+            title={`Delete ${session.n_runs} run${session.n_runs === 1 ? "" : "s"} · $${session.total_cost_usd.toFixed(3)}. Cannot be undone.`}
+          >
+            {busyDelete ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <Check size={11} />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setConfirmDelete(false)
+            }}
+            className="rounded p-1 text-muted-fg hover:bg-accent/50 hover:text-fg"
+            title="Cancel"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onPin()
+            }}
+            disabled={busyPin}
+            className={cn(
+              "shrink-0 rounded p-1 text-muted-fg",
+              "hover:bg-accent/50 hover:text-fg",
+              session.pinned
+                ? "opacity-100 text-status-verdict"
+                : "opacity-0 group-hover:opacity-100",
+              busyPin && "opacity-100",
+            )}
+            title={session.pinned ? "Unpin" : "Pin to top"}
+          >
+            {busyPin ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : session.pinned ? (
+              <PinOff size={11} />
+            ) : (
+              <Pin size={11} />
+            )}
+          </button>
+
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setConfirmDelete(true)
+              }}
+              className={cn(
+                "shrink-0 rounded p-1 text-muted-fg",
+                "hover:bg-status-refuted/15 hover:text-status-refuted",
+                "opacity-0 group-hover:opacity-100",
+              )}
+              title="Delete chat"
+            >
+              <Trash2 size={11} />
+            </button>
+          )}
+        </>
+      )}
     </div>
   )
 }

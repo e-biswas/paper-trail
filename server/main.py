@@ -728,6 +728,21 @@ async def rename_session(session_id: str, title: str | None = None) -> dict[str,
     return {"session_id": session_id, "title": doc.get("title")}
 
 
+@app.delete("/sessions/{session_id}")
+async def delete_session_endpoint(session_id: str) -> dict[str, Any]:
+    """Hard-delete a session and every run it references.
+
+    Removes the session's JSON index and each run's `events.jsonl` + `meta.json`
+    from `~/.paper-trail/runs/`. Idempotent on repeat / unknown session ids
+    (returns `removed_runs=0, existed=false`). No undo.
+    """
+    store = get_store()
+    summary = store.delete_session(session_id)
+    if not summary.get("existed"):
+        raise HTTPException(status_code=404, detail="unknown session_id")
+    return summary
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Paper upload — lets the frontend submit a PDF directly when the URL is
 # behind Cloudflare / a paywall / otherwise unfetchable. Saved locally; the

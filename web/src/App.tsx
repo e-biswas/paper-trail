@@ -82,6 +82,7 @@ export default function App() {
         isRunning={store.isRunning}
         onNewSession={store.newSession}
         onLoadSession={store.loadSession}
+        onDeleteSession={store.deleteSession}
       />
 
       <main className="flex min-w-0 flex-1 flex-col">

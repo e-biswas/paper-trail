@@ -51,6 +51,7 @@ export interface ChatStore {
   validateRun: (run_id: string) => Promise<void>
   setSelectedHypothesis: (run_id: string, hypothesis_id: string | null) => void
   pushPr: (run_id: string) => Promise<void>
+  deleteSession: (session_id: string) => Promise<void>
 }
 
 
@@ -411,6 +412,26 @@ export function useChatStore(): ChatStore {
     }
   }
 
+  /** Hard-delete a session and every run it references. If `session_id`
+   *  matches the currently-loaded session, we also reset to a fresh one so
+   *  the UI doesn't linger on an empty / deleted id. No undo. */
+  async function deleteSession(session_id: string) {
+    setError(null)
+    try {
+      const res = await fetch(`/sessions/${session_id}`, { method: "DELETE" })
+      if (!res.ok && res.status !== 404) {
+        const txt = await res.text()
+        throw new Error(`delete failed: ${res.status} ${txt.slice(0, 200)}`)
+      }
+      if (session_id === sessionId) {
+        newSession()
+      }
+    } catch (exc: unknown) {
+      const msg = exc instanceof Error ? exc.message : String(exc)
+      setError(`Could not delete session: ${msg}`)
+    }
+  }
+
   return {
     turns,
     sessionId,
@@ -423,5 +444,6 @@ export function useChatStore(): ChatStore {
     validateRun,
     setSelectedHypothesis,
     pushPr,
+    deleteSession,
   }
 }

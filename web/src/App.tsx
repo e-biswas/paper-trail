@@ -101,6 +101,7 @@ export default function App() {
                       onValidate={store.validateRun}
                       onStop={store.isRunning ? store.stopRun : undefined}
                       onSelectHypothesis={store.setSelectedHypothesis}
+                      onPushPr={store.pushPr}
                     />
                   ),
                 )}

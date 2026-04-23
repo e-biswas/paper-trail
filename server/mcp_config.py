@@ -42,8 +42,14 @@ def build_mcp_servers() -> dict[str, Any]:
     return servers
 
 
-# Tools we allow the conductor to call from the GitHub MCP server. A narrow
-# allowlist so the agent can't accidentally close issues, delete branches, etc.
+# Tools we allow the conductor to call from the GitHub MCP server.
+#
+# INVARIANT: this list is ADDITIVE ONLY. No `delete_*`, `merge_*`, `close_*`,
+# `update_pull_request`, or any tool that can mutate state the bot account
+# doesn't exclusively own. The MCP server exposes ~40 tools in total; the
+# agent's tool schema only includes what's listed here, so destructive
+# operations are unreachable regardless of how broad the token's scope is.
+# This is defence layer #1 for fork-first PRs to third-party upstreams.
 GITHUB_TOOL_ALLOWLIST: tuple[str, ...] = (
     "mcp__github__create_pull_request",
     "mcp__github__get_pull_request",
@@ -52,4 +58,8 @@ GITHUB_TOOL_ALLOWLIST: tuple[str, ...] = (
     "mcp__github__get_file_contents",
     "mcp__github__push_files",
     "mcp__github__get_repository",
+    # fork_repository: idempotent per GitHub API — returns the existing fork
+    # if one already exists on the bot account. Used by the fork-first PR
+    # flow when `repo_slug` owner is not the bot owner.
+    "mcp__github__fork_repository",
 )

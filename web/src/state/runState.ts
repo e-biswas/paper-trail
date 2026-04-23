@@ -117,6 +117,10 @@ export interface RunState {
   selectedHypothesisId: string | null
   toolCallHypothesisId: Record<string, string | null>
   activeCheckHypothesisId: string | null    // rolling pointer used during reduction
+  // Manual "Push PR" button state (only meaningful when the run was started
+  // with `auto_pr=false` AND the run completed with fix_applied set).
+  prPushStatus: "idle" | "running" | "ready" | "error"
+  prPushError: string | null
 }
 
 export function emptyRunState(): RunState {
@@ -157,6 +161,8 @@ export function emptyRunState(): RunState {
     selectedHypothesisId: null,
     toolCallHypothesisId: {},
     activeCheckHypothesisId: null,
+    prPushStatus: "idle",
+    prPushError: null,
   }
 }
 

@@ -71,6 +71,16 @@ _INVESTIGATE_TOOLS: list[str] = [
 ]
 _CHECK_TOOLS: list[str] = ["Read", "Grep", "Glob"]
 
+# GitHub MCP tools kept available when auto_pr is OFF. The agent may still
+# need to verify a fork exists or read upstream file contents, but cannot
+# push commits, branches, or pull requests until the user explicitly clicks
+# "Push PR" in the UI (which triggers the out-of-band opener).
+_GITHUB_READONLY_ALLOWLIST: tuple[str, ...] = (
+    "mcp__github__get_repository",
+    "mcp__github__get_file_contents",
+    "mcp__github__get_pull_request",
+)
+
 
 # ---------------------------------------------------------------------- #
 # Config
@@ -91,6 +101,7 @@ class RunConfig:
     question: str | None = None
     session_id: str | None = None
     model: str = DEFAULT_MODEL
+    auto_pr: bool = True    # if False, agent stops after dossier; user opens PR manually
     extras: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -148,8 +159,16 @@ class RunConfig:
         if user_prompt is not None and not isinstance(user_prompt, str):
             raise ConfigError("user_prompt must be a string if provided")
 
+        auto_pr_raw = raw.get("auto_pr")
+        if auto_pr_raw is None:
+            auto_pr = True
+        elif isinstance(auto_pr_raw, bool):
+            auto_pr = auto_pr_raw
+        else:
+            raise ConfigError("auto_pr must be a boolean if provided")
+
         reserved = {"repo_path", "paper_url", "repo_slug", "question",
-                    "session_id", "model", "user_prompt"}
+                    "session_id", "model", "user_prompt", "auto_pr"}
         extras = {k: v for k, v in raw.items() if k not in reserved}
 
         return cls(
@@ -161,6 +180,7 @@ class RunConfig:
             question=question,
             session_id=session_id,
             model=model,
+            auto_pr=auto_pr,
             extras=extras,
         )
 
@@ -187,6 +207,66 @@ def _build_investigator_system_prompt() -> str:
 
 def _build_quick_check_system_prompt() -> str:
     return _load_prompt("quick_check")
+
+
+def _fork_slug_for(repo_slug: str | None) -> str | None:
+    """Derive the bot-owned fork slug when the upstream isn't owned by the bot.
+
+    Returns `None` when:
+      - `repo_slug` is falsy
+      - `GITHUB_BOT_OWNER` isn't configured
+      - `repo_slug` is already owned by the bot (no fork needed)
+    """
+    if not repo_slug or "/" not in repo_slug:
+        return None
+    bot_owner = os.environ.get("GITHUB_BOT_OWNER", "").strip()
+    if not bot_owner:
+        return None
+    upstream_owner, _, repo = repo_slug.partition("/")
+    if not repo:
+        return None
+    if upstream_owner.lower() == bot_owner.lower():
+        return None
+    return f"{bot_owner}/{repo}"
+
+
+def _build_pr_directive(
+    *, repo_slug: str | None, fork_slug: str | None, auto_pr: bool,
+) -> str:
+    """Runtime PR-behaviour instructions spliced into the user prompt.
+
+    The system prompt (`investigator.md`) describes the general contract.
+    This function supplies the RUN-SPECIFIC overrides: whether to push a
+    PR at all, and whether to fork first.
+    """
+    if not repo_slug:
+        return "Auto PR: n/a (no `Repo slug` provided — skip PR step silently).\n"
+    if not auto_pr:
+        return (
+            "Auto PR: OFF — The user has disabled automatic PR creation for this\n"
+            "run. Complete the investigation through the Dossier blocks, then STOP.\n"
+            "Do NOT call `mcp__github__create_pull_request` or any fork/branch\n"
+            "mutation tool. The user will review the dossier and trigger PR\n"
+            "opening manually from the UI.\n"
+        )
+    if fork_slug:
+        return (
+            "Auto PR: ON (fork-first mode).\n"
+            "  1. Call `mcp__github__fork_repository` once on the upstream\n"
+            f"     ({repo_slug}) — GitHub returns the existing fork if present,\n"
+            "     so this is idempotent. Proceed as soon as the call returns.\n"
+            f"  2. Commit to the fork at {fork_slug}: `create_branch` and\n"
+            "     `create_or_update_file` both take owner/repo from the fork\n"
+            "     slug, never the upstream.\n"
+            f"  3. Call `create_pull_request` with owner/repo = {repo_slug} and\n"
+            f"     `head` = '{fork_slug.split('/')[0]}:<branch>', `base` = 'main'.\n"
+            "     This opens a cross-fork PR that the upstream maintainer sees.\n"
+        )
+    return (
+        "Auto PR: ON (bot owns the upstream — no fork step needed).\n"
+        f"  Use `owner`/`repo` from {repo_slug} directly for branch, file, and\n"
+        "  PR calls; `base` = 'main'.\n"
+    )
 
 
 def _venv_python() -> Path | None:
@@ -444,6 +524,7 @@ async def run_agent(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
             "max_budget_usd": config.max_budget_usd,
             "model": config.model,
             "user_prompt": config.extras.get("user_prompt"),
+            "auto_pr": config.auto_pr,
         },
     )
 
@@ -725,6 +806,18 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
             "Use it when invoking Python scripts (e.g., `{venv_py} src/eval.py`) "
             "— it has sklearn/pandas/numpy installed. The system `python` does not."
         ).format(venv_py=venv_py) if venv_py else ""
+        # Fork-first decision. When the upstream `repo_slug` is not owned by
+        # our bot account, we open the PR from a fork (the standard OSS
+        # contribution flow) so we never need write access on the upstream.
+        # The `Fork slug:` line tells the agent which slug to push commits
+        # into; it still passes the upstream slug as `base` when creating the
+        # cross-fork PR.
+        fork_slug = _fork_slug_for(config.repo_slug)
+        pr_directive = _build_pr_directive(
+            repo_slug=config.repo_slug,
+            fork_slug=fork_slug,
+            auto_pr=config.auto_pr,
+        )
         user_prompt = (
             (session_context if session_context else "")
             + "Paper context:\n\n"
@@ -733,6 +826,8 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
             + "------------------\n\n"
             + f"Repo path: {config.repo_path}\n"
             + f"Repo slug: {config.repo_slug or '(not set — skip PR creation)'}\n"
+            + (f"Fork slug: {fork_slug}\n" if fork_slug else "")
+            + pr_directive
             + f"{py_hint}\n\n"
             + "Begin the investigation per your operating contract."
         )
@@ -740,7 +835,13 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
     mcp_servers = build_mcp_servers() if config.mode == "investigate" else {}
     effective_allowed = list(allowed_tools)
     if "github" in mcp_servers:
-        effective_allowed.extend(GITHUB_TOOL_ALLOWLIST)
+        # When auto_pr is off, surface only read-only + get_repository so the
+        # agent can verify fork existence etc. if it needs to but cannot push.
+        # Tools are filtered by name — write-side MCP tools are dropped.
+        if config.auto_pr:
+            effective_allowed.extend(GITHUB_TOOL_ALLOWLIST)
+        else:
+            effective_allowed.extend(_GITHUB_READONLY_ALLOWLIST)
 
     options = ClaudeAgentOptions(
         model=config.model,

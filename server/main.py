@@ -470,6 +470,220 @@ async def validate_run(run_id: str, force: bool = False) -> dict[str, Any]:
     }
 
 
+@app.post("/runs/{run_id}/push_pr")
+async def push_pr(run_id: str) -> dict[str, Any]:
+    """Manually open a PR for a completed Deep Investigation.
+
+    Only valid when:
+      - the run is `mode=investigate` and successfully completed (or aborted
+        with a dossier in place),
+      - `fix_applied` persisted `files_changed`,
+      - no `pr_opened` envelope exists yet for this run,
+      - a `repo_slug` was attached.
+
+    Spawns a short, focused agent query with the GitHub MCP tools + `Read`.
+    That mini-agent picks a branch name, forks the upstream if required,
+    commits each file from `files_changed`, and opens a cross-fork PR
+    against the upstream. The returned `## PR opened:` block is parsed
+    and replayed as a `pr_opened` envelope on the original run's event
+    log so the UI / dossier / artifacts stay consistent with the
+    auto-PR path.
+    """
+    store = get_store()
+    meta = store.load_meta(run_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="unknown run_id")
+    if meta.mode != "investigate":
+        raise HTTPException(
+            status_code=400, detail="push_pr only applies to Deep Investigation runs",
+        )
+    if meta.pr_url:
+        raise HTTPException(
+            status_code=409,
+            detail=f"a PR was already opened for this run: {meta.pr_url}",
+        )
+    if not meta.files_changed:
+        raise HTTPException(
+            status_code=409,
+            detail="this run has no files_changed persisted; nothing to PR",
+        )
+    if not meta.repo_slug:
+        raise HTTPException(
+            status_code=409,
+            detail="this run had no repo_slug attached; cannot target a PR",
+        )
+    if not os.environ.get("GITHUB_TOKEN"):
+        raise HTTPException(
+            status_code=503,
+            detail="GITHUB_TOKEN is not configured on the server",
+        )
+
+    # Assemble the dossier sections from persisted events.
+    dossier_sections: dict[str, str] = {}
+    metric_deltas: list[dict[str, Any]] = []
+    for ev in store.iter_events(run_id):
+        etype = ev.get("type")
+        data = ev.get("data") or {}
+        if etype == "dossier_section":
+            sec = data.get("section")
+            if sec:
+                dossier_sections[str(sec)] = str(data.get("markdown") or "")
+        elif etype == "metric_delta":
+            metric_deltas.append(data)
+    if not dossier_sections:
+        raise HTTPException(
+            status_code=409,
+            detail="no dossier sections persisted; run the investigation to completion first",
+        )
+
+    from server.agent import _fork_slug_for
+    from server.mcp_config import GITHUB_TOOL_ALLOWLIST, build_mcp_servers
+    from server.parser import parse as parse_blocks
+
+    mcp_servers = build_mcp_servers()
+    if "github" not in mcp_servers:
+        raise HTTPException(status_code=503, detail="GitHub MCP not configured")
+
+    fork_slug = _fork_slug_for(meta.repo_slug)
+    fork_required = fork_slug is not None
+
+    branch_hint = _derive_branch_hint(meta.repo_slug, run_id)
+    pr_title = _derive_pr_title(meta)
+    pr_body = _build_pr_body_md(meta, dossier_sections, metric_deltas)
+
+    files_list = "\n".join(f"  - {p}" for p in meta.files_changed)
+
+    prompt = (
+        f"Repo slug (upstream): {meta.repo_slug}\n"
+        f"Fork slug (push target): {fork_slug or meta.repo_slug}\n"
+        f"Fork required: {'true' if fork_required else 'false'}\n"
+        f"Repo path: {meta.repo_path}\n"
+        f"Files changed:\n{files_list}\n"
+        f"Branch hint: {branch_hint}\n\n"
+        f"PR title: {pr_title}\n\n"
+        "PR body (paste verbatim into the PR's body field):\n"
+        "------------------\n"
+        f"{pr_body}\n"
+        "------------------\n\n"
+        "Open the PR per your contract. Emit exactly one `## PR opened:` "
+        "block on success, or `## Aborted:` on failure. Nothing else."
+    )
+
+    from claude_agent_sdk import (
+        AssistantMessage,
+        ClaudeAgentOptions,
+        ResultMessage,
+        TextBlock,
+        query,
+    )
+    from server.subagents.base import load_subagent_prompt
+
+    options = ClaudeAgentOptions(
+        model="claude-opus-4-7",
+        system_prompt=load_subagent_prompt("pr_opener"),
+        allowed_tools=["Read", *GITHUB_TOOL_ALLOWLIST],
+        cwd=meta.repo_path,
+        max_turns=8,
+        max_budget_usd=0.60,
+        include_partial_messages=False,
+        mcp_servers=mcp_servers,
+    )
+
+    collected: list[str] = []
+    try:
+        async for msg in query(prompt=prompt, options=options):
+            if isinstance(msg, AssistantMessage):
+                for block in msg.content:
+                    if isinstance(block, TextBlock) and block.text:
+                        collected.append(block.text)
+            elif isinstance(msg, ResultMessage):
+                break
+    except Exception as exc:
+        log.warning("push_pr agent failed for run %s: %s", run_id, exc)
+        raise HTTPException(status_code=502, detail=f"pr opener failed: {exc}") from exc
+
+    full_text = "\n".join(collected)
+    parsed_events = parse_blocks(full_text)
+    pr_ev = next((e for e in parsed_events if e.get("type") == "pr_opened"), None)
+    aborted_ev = next((e for e in parsed_events if e.get("type") == "aborted"), None)
+
+    if pr_ev is None:
+        detail = aborted_ev.get("data", {}).get("detail") if aborted_ev else None
+        raise HTTPException(
+            status_code=502,
+            detail=f"pr opener emitted no PR: {detail or full_text[:400]}",
+        )
+
+    # Replay the envelope into the run's persisted event log so the UI,
+    # dossier, and artifact endpoints all see it as if auto-PR had fired.
+    store.append_event(run_id, pr_ev)
+    store.update_meta_from_event(run_id, pr_ev)
+    return pr_ev.get("data", {})
+
+
+def _derive_branch_hint(repo_slug: str, run_id: str) -> str:
+    short_slug = repo_slug.split("/")[-1].replace("_", "-")[:32]
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
+    return f"{short_slug}-{ts}-{run_id[-6:]}"
+
+
+def _derive_pr_title(meta: Any) -> str:
+    base = meta.verdict_summary or "Reproducibility fix"
+    title = base.split("\n", 1)[0].strip()
+    if len(title) > 69:
+        title = title[:66].rstrip() + "..."
+    return f"fix: {title}"
+
+
+def _build_pr_body_md(
+    meta: Any,
+    dossier: dict[str, str],
+    metric_deltas: list[dict[str, Any]],
+) -> str:
+    """Render the canonical PR body from the run's dossier + metric deltas."""
+    claim = dossier.get("claim_tested", "").strip()
+    evidence = dossier.get("evidence_gathered", "").strip()
+    root_cause = dossier.get("root_cause", "").strip()
+    fix = dossier.get("fix_applied", "").strip()
+    uncertainty = dossier.get("remaining_uncertainty", "").strip()
+
+    # Metric table.
+    rows: list[str] = []
+    for m in metric_deltas:
+        metric = m.get("metric", "")
+        ctx = m.get("context", "")
+        before = m.get("before")
+        after = m.get("after")
+        try:
+            delta = f"{(float(after) - float(before)):+.4f}"
+        except (TypeError, ValueError):
+            delta = "?"
+        rows.append(f"| {metric} | {ctx} | {before} | {after} | {delta} |")
+    metric_table = (
+        "| Metric | Context | Before | After | Δ |\n"
+        "|---|---|---:|---:|---:|\n" + ("\n".join(rows) if rows else "| — | — | — | — | — |")
+    )
+
+    files_list = "\n".join(f"- `{p}`" for p in meta.files_changed)
+
+    tldr = (meta.verdict_summary or "Reproducibility fix surfaced by Paper Trail.").split("\n", 1)[0]
+
+    return (
+        f"## TL;DR\n\n{tldr}\n\n"
+        f"## What was tested\n\n{claim or '(see dossier)'}\n\n"
+        f"## Metric deltas\n\n{metric_table}\n\n"
+        f"## Root cause\n\n{root_cause or '(see dossier)'}\n\n"
+        f"## Evidence\n\n{evidence or '(see dossier)'}\n\n"
+        f"## Fix\n\n{fix or '(see dossier)'}\n\n"
+        f"Files changed:\n\n{files_list or '- (none)'}\n\n"
+        f"## Remaining uncertainty\n\n{uncertainty or '(see dossier)'}\n\n"
+        "---\n\n"
+        "*Auto-generated by [Paper Trail](https://github.com/e-biswas/paper-trail). "
+        "Reviewer: click `Run validator` in the dashboard for an independent "
+        "peer-review pass on this investigation.*"
+    )
+
+
 @app.get("/sessions/{session_id}")
 async def get_session(session_id: str) -> dict[str, Any]:
     return session_summary(session_id)

@@ -18,6 +18,7 @@ import {
   Check,
   CircleX,
   GitBranch,
+  GitPullRequest,
   FolderOpen,
 } from "lucide-react"
 import type { Mode, ModelId } from "../../types"
@@ -148,6 +149,14 @@ export function InputRow({
     if (saved && ALLOWED_MODELS.includes(saved as ModelId)) return saved as ModelId
     return "claude-opus-4-7"
   })
+  // Auto-PR default = ON (matches hackathon demo narrative). localStorage
+  // persists the user's choice across reloads. Only meaningful in `investigate`
+  // mode; Quick Check ignores it.
+  const [autoPr, setAutoPr] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true
+    const saved = localStorage.getItem("repro.autoPr")
+    return saved === null ? true : saved === "true"
+  })
   const [text, setText] = useState("")
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
@@ -187,6 +196,15 @@ export function InputRow({
       // localStorage disabled; ignore
     }
   }, [model])
+
+  // Persist the auto-PR preference. Only applies to Deep Investigation runs.
+  useEffect(() => {
+    try {
+      localStorage.setItem("repro.autoPr", String(autoPr))
+    } catch {
+      // localStorage disabled; ignore
+    }
+  }, [autoPr])
 
   // Close popovers on outside click.
   useEffect(() => {
@@ -318,6 +336,7 @@ export function InputRow({
       repo_path,
       repo_slug,
       model,
+      auto_pr: mode === "investigate" ? autoPr : undefined,
     })
     setText("")
   }, [
@@ -330,6 +349,7 @@ export function InputRow({
     attachRepo,
     onSubmit,
     model,
+    autoPr,
   ])
 
   function handleKey(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -524,6 +544,34 @@ export function InputRow({
               <FileCheck2 size={10} className="shrink-0" />
               <span className="truncate">{uploadedName}</span>
             </span>
+          )}
+
+          {/* Auto-PR toggle — only in Deep Investigation mode. OFF is the safe
+              default post-hackathon; ON is the demo default for now. */}
+          {mode === "investigate" && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoPr}
+              onClick={() => setAutoPr((v) => !v)}
+              disabled={disabled}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium",
+                "border transition",
+                autoPr
+                  ? "border-status-verdict/40 bg-status-verdict/10 text-status-verdict hover:bg-status-verdict/15"
+                  : "border-border bg-input/60 text-muted-fg hover:bg-accent/40",
+                "disabled:cursor-not-allowed disabled:opacity-60",
+              )}
+              title={
+                autoPr
+                  ? "Auto PR is ON — agent will open the PR when the fix lands. Click to turn off."
+                  : "Auto PR is OFF — agent stops after the Dossier; you click Push PR to open it. Click to turn on."
+              }
+            >
+              <GitPullRequest size={11} />
+              <span>Auto PR: {autoPr ? "on" : "off"}</span>
+            </button>
           )}
 
           <div className="flex-1" />

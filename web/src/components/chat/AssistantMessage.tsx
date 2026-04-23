@@ -5,6 +5,7 @@ import {
   Telescope,
   CircleHelp,
   FileSearch,
+  GitPullRequest,
   ShieldCheck,
   Loader2,
   Square,
@@ -29,6 +30,7 @@ interface Props {
   onValidate?: (run_id: string) => void
   onStop?: () => void
   onSelectHypothesis?: (run_id: string, hypothesis_id: string | null) => void
+  onPushPr?: (run_id: string) => void
 }
 
 const MODE_LABEL: Record<AssistantTurn["mode"], string> = {
@@ -83,7 +85,7 @@ function StatusBadge({ status }: { status: AssistantTurn["run_state"]["status"] 
   return <Badge tone="pending">connecting</Badge>
 }
 
-export function AssistantMessage({ turn, onValidate, onStop, onSelectHypothesis }: Props) {
+export function AssistantMessage({ turn, onValidate, onStop, onSelectHypothesis, onPushPr }: Props) {
   const s = turn.run_state
   const hypos = s.hypothesisOrder.map((id) => s.hypotheses[id]).filter(Boolean)
   const tools = s.toolCallOrder.map((id) => s.toolCalls[id]).filter(Boolean)
@@ -92,6 +94,17 @@ export function AssistantMessage({ turn, onValidate, onStop, onSelectHypothesis 
     turn.mode === "investigate" &&
     s.status === "success" &&
     (s.verdict != null || s.aborted != null)
+
+  // "Push PR" only surfaces when a real fix landed (with files + metric delta)
+  // but no PR was opened yet. Covers both the explicit `auto_pr=false` path
+  // and the auto_pr=true-but-PR-call-failed fallback.
+  const showPushPrButton =
+    turn.mode === "investigate" &&
+    s.status !== "running" &&
+    s.status !== "connecting" &&
+    s.fixApplied != null &&
+    s.metricDeltas.length > 0 &&
+    s.prOpened == null
 
   // Live cost: prefer the streamed `cost_update` value during the run (more
   // accurate than the orchestrator's pre-ResultMessage estimate shown in
@@ -272,6 +285,44 @@ export function AssistantMessage({ turn, onValidate, onStop, onSelectHypothesis 
 
             {/* PR card */}
             {s.prOpened && <PRCard pr={s.prOpened} />}
+
+            {/* Manual "Push PR" controls — shown when the fix is real but no
+                PR has been opened yet. Explicit user click keeps us honest
+                about the irreversible external side-effect. */}
+            {showPushPrButton && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={
+                    s.prPushStatus === "running" || !onPushPr || !s.run_id
+                  }
+                  onClick={() => s.run_id && onPushPr?.(s.run_id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md border border-status-verdict/50 bg-status-verdict/10 px-3 py-1.5 text-xs font-medium text-status-verdict",
+                    "hover:bg-status-verdict/15 disabled:cursor-not-allowed disabled:opacity-60",
+                  )}
+                  title="Open the PR now. Forks the upstream if the bot doesn't already own it."
+                >
+                  {s.prPushStatus === "running" ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      opening PR…
+                    </>
+                  ) : (
+                    <>
+                      <GitPullRequest size={12} />
+                      Push PR to upstream
+                    </>
+                  )}
+                </button>
+                {s.prPushStatus === "error" && s.prPushError && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-status-refuted">
+                    <CircleAlert size={11} />
+                    {s.prPushError}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Validity report — on-demand */}
             {s.validityReport && <ValidityReport report={s.validityReport} />}

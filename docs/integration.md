@@ -51,7 +51,13 @@ Backend exposes two WebSocket endpoints. Both share the envelope format; the eve
     // Optional, both modes:
     "session_id": "s-abcd1234",        // groups chat turns; inferred from the ws session if absent
     "model": "claude-opus-4-7",         // one of: claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5-20251001
-    "max_budget_usd": 5.0               // upper bound on cost for this single run
+    "max_budget_usd": 5.0,              // upper bound on cost for this single run
+
+    // Deep Investigation only: control PR emission.
+    // true  (default) — agent opens the PR itself when the fix lands.
+    // false           — agent stops after Dossier blocks; no GitHub mutations.
+    //                   User opens the PR out-of-band via POST /runs/{id}/push_pr.
+    "auto_pr": true
   }
 }
 ```
@@ -246,6 +252,7 @@ Beyond the WebSocket, the backend exposes a small REST surface the frontend uses
 | `GET` | `/runs/{id}/diff.patch` | Unified git diff of files the agent edited |
 | `GET` | `/runs/{id}/paper.md` | The ingested paper as markdown |
 | `POST` | `/runs/{id}/validate?force=false` | Run the Validator subagent; returns ValidityReport payload. Cached. |
+| `POST` | `/runs/{id}/push_pr` | Manually open the PR for a completed Deep Investigation (valid when `auto_pr=false` was set, or auto PR failed). Spawns a focused PR-opener subagent that forks the upstream if the bot doesn't own it, commits each `files_changed` entry, and opens a cross-fork PR. Returns `{url, number, title}`. Replays a `pr_opened` envelope into the run's event log so downstream consumers (UI, dossier) stay consistent with the auto path. |
 | `POST` | `/papers/upload` | Multipart PDF upload for Cloudflare-blocked sources. Returns a local path usable as `paper_url`. |
 | `POST` | `/repos/attach?input=…` | Resolve a GitHub URL, `owner/repo` slug, or local path into `{local_path, slug, default_branch, source, already_cloned, warning}`. Remote repos are shallow-cloned under `~/.cache/paper-trail/repos/` on first call and reused thereafter. |
 

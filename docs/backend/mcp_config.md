@@ -53,16 +53,36 @@ Note: the env var name for the GitHub MCP server is `GITHUB_PERSONAL_ACCESS_TOKE
 
 ### Tool allowlist — what the agent is permitted to call
 
-We do NOT expose every GitHub MCP tool. The agent should not open issues, close PRs, or touch unrelated repos. Allowlist:
+**INVARIANT: additive-only.** We do NOT expose every GitHub MCP tool. The GH
+MCP server ships ~40 tools in total; our allowlist exposes only the additive
+ones the investigator + PR-opener need. Destructive tools — `delete_file`,
+`delete_branch`, `merge_pull_request`, `update_pull_request`, `close_*`,
+`create_issue` — are never in the agent's tool schema, so the model cannot
+invoke them regardless of token scope. This is defence layer #1 for the
+fork-first PR flow (see below).
 
 | Tool | Why |
 |---|---|
 | `mcp__github__create_pull_request` | The core artifact |
-| `mcp__github__get_pull_request` | Confirm PR state after creation |
-| `mcp__github__get_repository` | Read repo metadata if needed |
+| `mcp__github__get_pull_request`    | Confirm PR state after creation |
+| `mcp__github__get_repository`      | Read repo metadata (branch names, fork existence) |
+| `mcp__github__create_branch`       | Push the fix branch |
+| `mcp__github__create_or_update_file` | Commit each changed file |
+| `mcp__github__get_file_contents`   | Read upstream file content when Read isn't enough |
+| `mcp__github__push_files`          | Batch commit helper |
+| `mcp__github__fork_repository`     | Fork-first flow: idempotent (returns existing fork if present) |
+
+Auto-PR off path: when `RunConfig.auto_pr` is `False`, the investigator
+runs with a **narrower** read-only subset (`get_repository`,
+`get_file_contents`, `get_pull_request`) so it literally cannot commit or
+open a PR. The user triggers PR opening out-of-band via
+`POST /runs/{id}/push_pr`, which spawns a focused subagent with the full
+allowlist restored for a single bounded run.
 
 Explicitly NOT on the allowlist:
-- Any `delete_*` / `merge_pull_request` / `create_issue` / anything that mutates state the demo doesn't need.
+- Any `delete_*` / `merge_pull_request` / `update_pull_request` / `close_*`
+  / `create_issue` / `add_comment` — anything that mutates state the demo
+  doesn't need, or anything that could touch repos the bot doesn't own.
 
 ### PAT scope (minimum viable)
 
@@ -75,10 +95,29 @@ Fine-grained tokens also work. Scope restricted to the single demo repo.
 
 ### Repo flow for the PR
 
-1. Agent operates inside `config.repo_path` (already a git repo; the fixture's `stage.sh` ran `git init` + committed the broken state).
-2. Agent uses `Bash` to: `git checkout -b fix/reproducibility-<timestamp>`, `git add`, `git commit -m "..."`, `git push`.
-3. Agent calls `mcp__github__create_pull_request(base="main", head="fix/...", title="...", body="<dossier markdown>")`.
-4. The MCP tool returns `{url, number, title}`. Agent echoes a `## PR opened:` section; server emits `pr_opened`.
+Agent operates inside `config.repo_path` (the staged local clone). The PR
+step is MCP-driven — no `git push`. Two shapes, selected at prompt build
+time by `_build_pr_directive` in `server/agent.py`:
+
+**A. Bot-owned upstream (classic demo path).** When `repo_slug` owner ==
+`GITHUB_BOT_OWNER`, the agent calls the tools directly against the
+upstream:
+
+1. `create_branch(owner=upstream, repo=upstream, branch=fix/..., from_branch=main)`
+2. `create_or_update_file(owner=upstream, repo=upstream, branch=fix/..., path=…)` — once per file in `files_changed`
+3. `create_pull_request(owner=upstream, repo=upstream, head="fix/...", base="main")`
+
+**B. Fork-first (third-party upstream).** When `repo_slug` owner !=
+`GITHUB_BOT_OWNER`, the agent's `Fork slug:` line carries the bot-owned
+fork slug (`<bot-owner>/<repo>`):
+
+1. `fork_repository(owner=upstream, repo=upstream)` — idempotent; returns the existing fork if present
+2. `create_branch(owner=fork, repo=fork, branch=fix/..., from_branch=main)`
+3. `create_or_update_file(owner=fork, repo=fork, branch=fix/..., path=…)` — once per file
+4. `create_pull_request(owner=upstream, repo=upstream, head="<bot-owner>:fix/...", base="main")` — **cross-fork PR**; the `<bot-owner>:` prefix on `head` is what makes GitHub look at the fork's branch rather than the upstream's
+
+Either shape: the MCP call returns `{url, number, title}`; agent echoes
+`## PR opened:` with those fields; the server emits `pr_opened`.
 
 ### Bot account + demo fork plan
 

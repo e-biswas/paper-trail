@@ -33,6 +33,10 @@ export interface StartRunInput {
   repo_path?: string
   repo_slug?: string | null
   model?: ModelId
+  /** Deep Investigation only. When false, the agent stops after the Dossier
+   *  blocks; the user opens the PR manually via a button in the assistant
+   *  message. Default true (hackathon demo path). */
+  auto_pr?: boolean
 }
 
 export interface ChatStore {
@@ -46,6 +50,7 @@ export interface ChatStore {
   loadSession: (session_id: string) => Promise<void>
   validateRun: (run_id: string) => Promise<void>
   setSelectedHypothesis: (run_id: string, hypothesis_id: string | null) => void
+  pushPr: (run_id: string) => Promise<void>
 }
 
 
@@ -123,6 +128,10 @@ export function useChatStore(): ChatStore {
       if (input.paper_url) config.paper_url = input.paper_url
       if (input.repo_path) config.repo_path = input.repo_path
       if (input.repo_slug) config.repo_slug = input.repo_slug
+      // Default true (hackathon demo path). The InputRow sends an explicit
+      // boolean when the user toggles the pill so this only matters for
+      // programmatic callers that forget to set it.
+      config.auto_pr = input.auto_pr ?? true
     } else {
       config.question = input.text
       if (input.repo_path) config.repo_path = input.repo_path
@@ -363,6 +372,45 @@ export function useChatStore(): ChatStore {
     }))
   }
 
+  /** Manually open the PR for a completed Deep Investigation whose run was
+   *  started with `auto_pr=false`. Backend spawns a focused agent that
+   *  forks (if needed), commits the post-fix files, and opens the PR.
+   *  On success the new `pr_opened` envelope is replayed into the run's
+   *  event log server-side and echoed back here so the reducer folds it in. */
+  async function pushPr(run_id: string) {
+    _patchTurn(run_id, (s) => ({ ...s, prPushStatus: "running", prPushError: null }))
+    try {
+      const res = await fetch(`/runs/${run_id}/push_pr`, { method: "POST" })
+      const raw = await res.text()
+      let body: unknown = null
+      if (raw) {
+        try { body = JSON.parse(raw) } catch { /* non-JSON body */ }
+      }
+      if (!res.ok) {
+        const detail = (body as { detail?: string } | null)?.detail || raw.slice(0, 200) || `HTTP ${res.status}`
+        throw new Error(detail)
+      }
+      const d = body as { url?: string; number?: number; title?: string } | null
+      if (!d?.url) {
+        throw new Error("server returned no PR url")
+      }
+      const env: Envelope = {
+        type: "pr_opened",
+        run_id,
+        ts: new Date().toISOString(),
+        seq: -1,   // server-authoritative seq lives in the persisted log
+        data: { url: d.url, number: d.number ?? 0, title: d.title ?? "" },
+      }
+      _patchTurn(run_id, (s) => ({
+        ...applyEnvelope(s, env),
+        prPushStatus: "ready",
+      }))
+    } catch (exc: unknown) {
+      const msg = exc instanceof Error ? exc.message : String(exc)
+      _patchTurn(run_id, (s) => ({ ...s, prPushStatus: "error", prPushError: msg }))
+    }
+  }
+
   return {
     turns,
     sessionId,
@@ -374,5 +422,6 @@ export function useChatStore(): ChatStore {
     loadSession,
     validateRun,
     setSelectedHypothesis,
+    pushPr,
   }
 }

@@ -197,7 +197,7 @@ This hackathon entry is the seed. The tree is a year of work. **We're interested
 
 ---
 
-## What we built in four days (Apr 21–24)
+## What we built
 
 - Python backend on Claude Agent SDK + FastAPI + WebSockets, live-streaming envelopes.
 - React + Vite + TypeScript + Tailwind chat UI with phase timeline, animated event replay, pinned sessions, model selector.

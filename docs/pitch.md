@@ -130,6 +130,17 @@ TabM is a clean ICLR 2025 paper. We asked three questions and the agent gave thr
 
 Acceptance criteria pinned in `test_data/ground_truth/*.json`. Before/after numbers reproducible on a laptop in under two minutes.
 
+### Consistency benchmark — 30 runs, reproducible from the repo
+
+We ran the agent **3 times** on each of 2 unseen recent papers (`tabm`, ICLR 2025; `gidd`, arXiv Dec 2025) across Quick Check + a professor-style Deep Investigation — 30 runs, $13.49 total, zero crashes. Findings:
+
+- Quick Check verdict agreement **78–80 %** across repeats; Fleiss' κ 0.29–0.44 (fair-to-moderate agreement *beyond chance*).
+- Deep Investigation conclusion agreement **100 %** on both papers — 3/3 runs unanimously classified `no_actionable_bug`, the correct answer in both cases.
+- Independent Opus Validator graded the Deep runs `strong` (tabm) / `acceptable` (gidd) with **67–86 %** of 7 quality checks passing.
+- On the clean baseline (tabm), the agent **did not hallucinate a bug** across 3 independent Deep runs given a professor-style prompt pushing on 4 specific axes.
+
+Full methodology, per-question tables, and honest caveats in [`benchmark/README.md`](../benchmark/README.md) + [`benchmark/results/FINDINGS.md`](../benchmark/results/FINDINGS.md). Raw per-run dossiers + validator scores under `benchmark/runs/` for anyone who wants to audit a single datapoint.
+
 Full details in [`docs/validity.md`](validity.md).
 
 ---

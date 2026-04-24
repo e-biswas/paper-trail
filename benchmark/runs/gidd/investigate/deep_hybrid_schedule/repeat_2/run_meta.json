@@ -1,0 +1,62 @@
+{
+  "run_id": "bench-gidd-investigate-deep_hybrid_schedule-r2-6a96fa84",
+  "paper": "gidd",
+  "mode": "investigate",
+  "question_id": "deep_hybrid_schedule",
+  "question_text": "GIDD's central methodological claim is that interpolating between masked and uniform diffusion via a hybrid noise schedule (parameterized by `hybrid_mixing_scale` and `hybrid_mixing_shift`) yields better scaling behavior than pure masked diffusion alone. I want to independently audit whether the repo's actual training and inference code exercise this hybrid schedule faithfully, or whether the reported scaling curves could come from configurations that silently collapse to pure masked diffusion. Specifically: (a) trace `hybrid_mixing_scale` and `hybrid_mixing_shift` from the training YAML/config through to the loss computation and the forward noise process; (b) identify any default values, branch conditions, or zero-value short-circuits that would silently bypass the interpolation; (c) check whether the hybrid schedule is implemented consistently in BOTH the JAX training path and the PyTorch inference-fallback path (`modeling_gidd_hf.py`) \u2014 a one-path-only implementation would be a reproducibility risk; (d) verify the noise sampler actually consumes both parameters (not just one). Produce a full investigation with file:line evidence and report an honest verdict \u2014 including 'no issue found' if the implementation checks out. Do NOT fabricate a problem to find.",
+  "repeat_idx": 2,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-deep-2",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 2.0279,
+  "duration_ms": 275646,
+  "total_turns": 33,
+  "tool_calls": 32,
+  "claim_summary": "The paper claims that uniform discrete diffusion models have favorable scaling behavior versus masked diffusion and ALMs, with compute-optimal token-to-parameter ratios and bits-per-byte (bpb) values derived from a properly-specified diffusion ELBO (reparameterized in log-SNR) and a hybrid mixing distribution \u03c0_\u03bb interpolating between masking and uniform noise. Reproducing any headline metric (e.g., eval bpb / NELBO) depends on correct implementation of the GIDD loss, the \u03c0_\u03bb mixing schedule, and the eval pipeline.",
+  "hypotheses": [
+    {
+      "id": "h1",
+      "name": "Inference-side silent scale hardcoding",
+      "confidence": 0.9,
+      "rank": 1
+    },
+    {
+      "id": "h2",
+      "name": "JAX-vs-PyTorch noise-schedule asymmetry",
+      "confidence": 0.75,
+      "rank": 2
+    },
+    {
+      "id": "h3",
+      "name": "Missing uniform-prior inference support",
+      "confidence": 0.3,
+      "rank": 3
+    },
+    {
+      "id": "h4",
+      "name": "No hybrid-schedule bypass/short-circuit",
+      "confidence": 0.15,
+      "rank": 4
+    }
+  ],
+  "verdicts": [
+    {
+      "hypothesis_id": "h1",
+      "confidence": 0.95,
+      "summary": "The hybrid noise schedule is faithfully exercised during JAX training (both `hybrid_mixing_scale` and `hybrid_mixing_shift` thread through CLI \u2192 DiffusionConfig \u2192 HybridMixingDistribution \u2192 ELBO). However, all three inference-style code paths (JAX `sampling.py`, JAX `likelihood.py`, and PyTorch HF `modeling_gidd_hf.py`) silently drop the scale parameter, hardcoding it to 1.0. For the paper's shipped checkpoints this is consistent because the paper explicitly fixes a=1 in all experiments, so no published scaling-curve number is affected. But the repo exposes `--hybrid_mixing_scale` as a first-class tunable on the training side with no guardrail or warning, producing a silent train/infer mismatch for any user that sets it to a non-1.0 value. Additionally, the HF `generate()` has no uniform-prior branch, so a uniform-prior 10B checkpoint loaded via the README example implicitly starts from the mask token."
+    }
+  ],
+  "quick_check_verdict": null,
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": [
+    "claim_tested",
+    "evidence_gathered",
+    "fix_applied",
+    "remaining_uncertainty",
+    "root_cause"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "run_id": "bench-tabm-check-qc3_test_contam-r1-0f36b54c",
+  "paper": "tabm",
+  "mode": "check",
+  "question_id": "qc3_test_contam",
+  "question_text": "Are model checkpoints evaluated on the test set multiple times with different hyperparameters (test-set contamination via selection)?",
+  "repeat_idx": 1,
+  "paper_url": "https://arxiv.org/abs/2410.24210",
+  "repo_slug": "yandex-research/tabm",
+  "repo_clone": "/tmp/bench-tabm-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0865,
+  "duration_ms": 25081,
+  "total_turns": 4,
+  "tool_calls": 3,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "refuted",
+    "confidence": 0.92,
+    "evidence": [
+      {
+        "file": "paper/bin/tune.py",
+        "line": 185,
+        "snippet": "return report['metrics']['val']['score']"
+      },
+      {
+        "file": "paper/bin/tune.py",
+        "line": 146,
+        "snippet": "direction='maximize',"
+      },
+      {
+        "file": "paper/bin/model.py",
+        "line": 646,
+        "snippet": "or metrics['val']['score'] > report['metrics']['val']['score']"
+      },
+      {
+        "file": "paper/bin/model.py",
+        "line": 654,
+        "snippet": "early_stopping.update(metrics['val']['score'])"
+      },
+      {
+        "file": "paper/bin/model.py",
+        "line": 724,
+        "snippet": "best_head_idx = int(np.argmax(head_val_scores))"
+      }
+    ],
+    "notes": "Hyperparameter tuning (Optuna objective), early stopping, best-checkpoint selection, and best-head selection all optimize the validation score; the test score is only reported alongside, not used for selection."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

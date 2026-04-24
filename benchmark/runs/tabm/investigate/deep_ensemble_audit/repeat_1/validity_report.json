@@ -1,0 +1,50 @@
+{
+  "run_id": "bench-tabm-investigate-deep_ensemble_audit-r1-026e4d10",
+  "ok": true,
+  "summary": "Investigator ran a thorough, negative-result audit of the TabM repo against the four prompt-specified concerns plus a leakage-taxonomy sweep, each refuted by concrete file:line citations, and correctly declined to fabricate a fix.",
+  "error": null,
+  "cost_usd": 0.13911375,
+  "duration_ms": 14054,
+  "payload": {
+    "overall": "strong",
+    "summary": "Investigator ran a thorough, negative-result audit of the TabM repo against the four prompt-specified concerns plus a leakage-taxonomy sweep, each refuted by concrete file:line citations, and correctly declined to fabricate a fix.",
+    "confidence": 0.88,
+    "checks": [
+      {
+        "label": "hypothesis_coverage",
+        "mark": "pass",
+        "note": "Five hypotheses cover the four prompt-targeted concerns (aggregation, k-sweep, hyperparameter traceability, param-count) plus a generic leakage check; appropriate for a 'is there actually a bug?' audit on a well-maintained repo."
+      },
+      {
+        "label": "evidence_quality",
+        "mark": "pass",
+        "note": "Every Finding cites specific file:line locations (e.g. paper/bin/model.py:536-543, paper/lib/data.py:284, paper/lib/deep.py:355-356) and quotes the matched code semantics rather than paraphrasing."
+      },
+      {
+        "label": "fix_minimality",
+        "mark": "pass",
+        "note": "No diff was applied; the investigator explicitly refused to fabricate a fix in a clean repo, which is the correct minimal action when no defect exists."
+      },
+      {
+        "label": "causal_link",
+        "mark": "pass",
+        "note": "No metric delta was claimed; the 'Remaining uncertainty' section makes clear no numerical re-run occurred, so there is no spurious causal claim to verify."
+      },
+      {
+        "label": "alternative_explanations",
+        "mark": "pass",
+        "note": "The verdict of 'no bug' is supported by independently ruling out each of five distinct failure modes; a standard taxonomy sweep (leakage, group splits, duplicates, temporal, metric mismatch) is explicitly noted as producing no hits."
+      },
+      {
+        "label": "uncertainty_honesty",
+        "mark": "pass",
+        "note": "Five substantive caveats listed, including the un-rerun metrics, un-verified k-sweep report.json contents, the `_init_first_adapter` historical-artifact comment, unaudited TabReD split script, and absence of subgroup slicing \u2014 these are real limitations, not padding."
+      },
+      {
+        "label": "suggested_followup",
+        "mark": "pass",
+        "note": "Open one `report.json` under `paper/exp/tabm/*/0-ensemble-5/` and cross-check its headline metric against the k-sensitivity table in \u00a75.3 \u2014 this is the cheapest way to confirm the k-sweep numbers actually trace to disk, which this audit explicitly deferred."
+      }
+    ]
+  }
+}

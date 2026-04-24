@@ -1,0 +1,56 @@
+{
+  "run_id": "bench-tabm-check-qc1_split_leak-r1-4b82d71a",
+  "paper": "tabm",
+  "mode": "check",
+  "question_id": "qc1_split_leak",
+  "question_text": "Is the train/validation/test split leak-free? Any normalization or feature engineering fit on the full dataset before splitting?",
+  "repeat_idx": 1,
+  "paper_url": "https://arxiv.org/abs/2410.24210",
+  "repo_slug": "yandex-research/tabm",
+  "repo_clone": "/tmp/bench-tabm-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.1757,
+  "duration_ms": 18183,
+  "total_turns": 3,
+  "tool_calls": 2,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.92,
+    "evidence": [
+      {
+        "file": "example.ipynb",
+        "line": 145,
+        "snippet": "trainval_idx, test_idx = sklearn.model_selection.train_test_split(all_idx, train_size=0.8)"
+      },
+      {
+        "file": "example.ipynb",
+        "line": 148,
+        "snippet": "train_idx, val_idx = sklearn.model_selection.train_test_split(trainval_idx, train_size=0.8)"
+      },
+      {
+        "file": "example.ipynb",
+        "line": 200,
+        "snippet": "subsample=10**9,).fit(x_num_train_numpy + noise)"
+      },
+      {
+        "file": "example.ipynb",
+        "line": 207,
+        "snippet": "data_numpy[part]['x_num'] = preprocessing.transform(data_numpy[part]['x_num'])"
+      },
+      {
+        "file": "example.ipynb",
+        "line": 220,
+        "snippet": "Y_train = data_numpy['train']['y'].copy(); ... mean/std computed from Y_train"
+      }
+    ],
+    "notes": "Split is performed first, then QuantileTransformer and regression label mean/std are fit on the training split only and transformed onto val/test \u2014 no leakage."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

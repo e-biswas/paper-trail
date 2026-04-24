@@ -1,0 +1,51 @@
+{
+  "run_id": "bench-gidd-check-qc3_checkpoints-r2-c02ff1e8",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc3_checkpoints",
+  "question_text": "Are pretrained model checkpoints published externally (HuggingFace or similar) so inference-only evaluation is feasible without a full training run? Cite the reference if any.",
+  "repeat_idx": 2,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.1674,
+  "duration_ms": 13073,
+  "total_turns": 4,
+  "tool_calls": 3,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.98,
+    "evidence": [
+      {
+        "file": "README.md",
+        "line": 24,
+        "snippet": "| `gidd-unif-10b` | 10B | 9.15 | uniform | https://huggingface.co/dvruette/gidd-unif-10b |"
+      },
+      {
+        "file": "README.md",
+        "line": 25,
+        "snippet": "| `gidd-mask-3b` | 3B | 11.3 | masked | https://huggingface.co/dvruette/gidd-mask-3b |"
+      },
+      {
+        "file": "README.md",
+        "line": 26,
+        "snippet": "| `gidd-unif-3b` | 3B | 11.7 | uniform | https://huggingface.co/dvruette/gidd-unif-3b |"
+      },
+      {
+        "file": "README.md",
+        "line": 40,
+        "snippet": "model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True, torch_dtype=torch.bfloat16)"
+      }
+    ],
+    "notes": "README publishes three pretrained checkpoints (3B masked, 3B uniform, 10B uniform) as PyTorch models on HuggingFace under `dvruette/`, loadable via `AutoModelForCausalLM.from_pretrained` for inference-only evaluation."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

@@ -1,0 +1,51 @@
+{
+  "run_id": "bench-gidd-check-qc2_sweeps-r2-767ec2cd",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc2_sweeps",
+  "question_text": "Does the repo provide hyperparameter sweeps or scaling recipes for each model size (25M / 85M / 170M / 302M / 567M / 3B / 10B), or must the user hand-tune for each scale?",
+  "repeat_idx": 2,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0681,
+  "duration_ms": 16629,
+  "total_turns": 5,
+  "tool_calls": 4,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "refuted",
+    "confidence": 0.82,
+    "evidence": [
+      {
+        "file": "pyproject.toml",
+        "line": 1,
+        "snippet": "(only pyproject.toml exists \u2014 no configs/ directory or per-size hyperparameter YAML/JSON files)"
+      },
+      {
+        "file": "README.md",
+        "line": 24,
+        "snippet": "| `gidd-unif-10b` | 10B | 9.15 | uniform | https://huggingface.co/dvruette/gidd-unif-10b |"
+      },
+      {
+        "file": "notebooks/scaling_laws.ipynb",
+        "line": 1,
+        "snippet": "notebooks/scaling_laws.ipynb (analysis notebook, not a sweep/recipe config)"
+      },
+      {
+        "file": "notebooks/optimal_lr.ipynb",
+        "line": 1,
+        "snippet": "notebooks/optimal_lr.ipynb (LR analysis notebook, not per-size recipes)"
+      }
+    ],
+    "notes": "\"No configs/ directory or per-model-size hyperparameter recipe files exist; scaling/LR material lives only in analysis notebooks, so users must hand-derive hyperparameters for each scale."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

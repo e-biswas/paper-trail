@@ -1,0 +1,29 @@
+## claim_tested
+
+The paper's reproducibility-relevant claim is that TabM — an MLP-based parameter-efficient ensemble using BatchEnsemble-style adapters with k=32 submodels sharing most weights — produces test-set metrics that honestly reflect generalization and that the TabM-vs-deep-ensemble comparison is apples-to-apples. The deep investigation specifically targeted: (a) whether k is a hard-coded constant hidden as a hyperparameter, (b) whether the aggregation rule over the k submodels matches the claimed mean-prediction rule, (c) whether per-dataset hyperparameters are traceable to committed configs, and (d) whether parameter-count accounting is consistent across the TabM-vs-ensemble comparison. In addition, a standard reproducibility-taxonomy sweep was performed (imputation-before-split, group splits, duplicates, temporal, metrics).
+
+## evidence_gathered
+
+- **Aggregation (h1):** `paper/bin/model.py:536-543` — for classification, softmax is applied per-submodel over the class axis and then `v.mean(1)` averages probabilities over the k-submodel axis; for regression, `v.mean(1)` averages scalar predictions. This is mean-of-probs / mean-of-predictions, applied identically at train-eval and test-eval time. Matches the paper's §3.2 abstract formulation ("the prediction of a deep ensemble is the mean prediction of its members") and is applied symmetrically to both TabM and the deep-ensemble baseline built in `paper/bin/ensemble.py`.
+- **Ensemble size k (h2):** `paper/bin/model.py:117` defines `k: None | int = None` as a constructor arg. `paper/exp/tabm/adult/0-tuning.toml:40` sets `k = 32` per the paper's documented default. `paper/exp/tabm/diamond/0-ensemble-5/` and parallel `-ensemble-5` directories under every model variant show k=5 deep-ensemble comparisons were also run; the paper itself (§3.3, §5.3) explicitly states k=32 is the headline choice and is analyzed as a sensitivity sweep.
+- **Hyperparameter traceability (h3):** 86 `*tuning.toml` files under `paper/exp/tabm/**`; each dataset has committed `0-tuning.toml`, `0-evaluation/`, and (where applicable) `0-ensemble-5/` directories containing `DONE` + `report.json` run artifacts. Configs are real, not retrofitted.
+- **Parameter-count (h4):** `paper/lib/deep.py:355-356` — one uniform counter (`sum(numel() for requires_grad params)`) applied via `paper/bin/model.py:409-410` to every arch variant (`plain` MLP, `tabm`, `tabm-mini`, `tabm-packed`, etc.). Adapters, embeddings, and the shared backbone are all included under the same rule for every variant; deep-ensemble totals trivially follow as k × (single-MLP total). No asymmetry.
+- **Data pipeline (h5, taxonomy classes 1–4):** `paper/lib/data.py:284` normalizer fits on `X_num['train']` only; `paper/lib/data.py:322` OrdinalEncoder fits on `X_cat['train']` only; `paper/lib/data.py:295` constant-column mask derived from train only; NaNs handled with `np.nan_to_num` (no imputer fit at all). Splits are loaded as pre-existing canonical train/val/test dicts — no `train_test_split` / `KFold` in the pipeline — so group-aware splits (e.g. TabReD's time-aware domain splits) are preserved by construction.
+- **Metrics (taxonomy class 5):** `paper/lib/metrics.py` delegates to canonical `sklearn.metrics` (`r2_score`, `roc_auc_score`, `log_loss`, `classification_report`) with no hand-rolled replacements.
+
+## root_cause
+
+None. No reproducibility-impacting bug was discovered. Every concern in the deep-investigation prompt was ruled out by direct code evidence, and the standard failure-class taxonomy (leakage, group splits, duplicates, temporal, metric mismatch) produced no hits. The repo's design is consistent with the paper's stated protocol.
+
+## fix_applied
+
+None. No code changes were made, because no defect was found. Fabricating a "fix" to chase a metric delta in a clean repo would itself be the reproducibility problem. In keeping with this investigator's honesty constraints, no Edit/Write call was issued and no PR will be opened.
+
+## remaining_uncertainty
+
+Honest caveats about what this audit did NOT verify:
+1. **No end-to-end metric re-run.** The repo has no small-sample `eval.py` in the bench fixture; the only committed entry points (`paper/bin/tune.py`, `paper/bin/model.py`, `paper/bin/evaluate.py`) run full hyperparameter tuning / multi-seed training, which the operating contract forbids (>60s). I therefore did not numerically re-confirm any published score on any of the 46 datasets — I only audited the code path that produces those scores.
+2. **Paper §5.3 k-sweep numbers not cross-verified.** I confirmed ensemble-size experiment directories exist and that k is a surfaced hyperparameter, but I did not open each `report.json` to verify that the k-sensitivity table in the paper matches what was actually written to disk.
+3. **`_init_first_adapter` "historical artifact" comment (paper/bin/model.py:52-55).** The code's own comment says the section-based init is an arbitrary artifact that leaked from unrelated experiments. It is applied to both TabM and its ablations, so it does not bias the TabM-vs-deep-ensemble comparison, but a downstream reader who wanted to reuse this init in isolation should be aware it is not a principled design choice.
+4. **TabReD and other domain-aware splits.** I verified the pipeline respects whatever split dict is handed to it; I did NOT independently verify that `paper/tools/prepare_tabred.py` produces a correct time-aware split (that script would need its own audit against the TabReD paper's split spec).
+5. **Subgroup blind-spot (taxonomy class 6).** The eval path reports aggregate metrics only; no per-subgroup slicing exists. This is a general tabular-DL blind spot, not a TabM-specific bug, and the paper does not claim per-subgroup results.

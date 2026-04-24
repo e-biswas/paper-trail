@@ -1,0 +1,50 @@
+{
+  "run_id": "bench-gidd-investigate-deep_hybrid_schedule-r2-6a96fa84",
+  "ok": true,
+  "summary": "Investigator produced a well-cited audit of a genuine API-consistency defect (scale=1.0 hardcoded in all inference paths), but the absence of a post-fix metric delta leaves the claim at the level of a static-correctness finding rather than a reproduced bug.",
+  "error": null,
+  "cost_usd": 0.15443475,
+  "duration_ms": 15704,
+  "payload": {
+    "overall": "acceptable",
+    "summary": "Investigator produced a well-cited audit of a genuine API-consistency defect (scale=1.0 hardcoded in all inference paths), but the absence of a post-fix metric delta leaves the claim at the level of a static-correctness finding rather than a reproduced bug.",
+    "confidence": 0.78,
+    "checks": [
+      {
+        "label": "hypothesis_coverage",
+        "mark": "pass",
+        "note": "Four hypotheses span the plausible failure space (train/infer mismatch, JAX/PyTorch asymmetry, prior-distribution init, short-circuit bypass); covers what one would expect for a diffusion-schedule reproducibility audit."
+      },
+      {
+        "label": "evidence_quality",
+        "mark": "pass",
+        "note": "Every Finding cites exact file:line locations (args.py:52-53, sampling.py:16-23, likelihood.py:125+155-163, configuration_gidd.py:36, modeling_gidd_hf.py:855-861) tied to concrete Read/Grep calls."
+      },
+      {
+        "label": "fix_minimality",
+        "mark": "warn",
+        "note": "No diff was applied, so minimality cannot be verified empirically; the proposed 5-step fix is scoped but item 5 (rename `noise_type` \u2192 `hybrid_mixing_shift` with back-compat alias) is scope creep beyond the core plumbing defect."
+      },
+      {
+        "label": "causal_link",
+        "mark": "warn",
+        "note": "Per the Dossier's own 'Impact on published results', the identified defect does not affect any a=1 experiment in the paper, so there is no metric that the root cause would move \u2014 the `## Metric delta:` section is absent by design, breaking the causal-link requirement."
+      },
+      {
+        "label": "alternative_explanations",
+        "mark": "pass",
+        "note": "Remaining-uncertainty section explicitly entertains the 'deliberate simplification vs. bug' alternative and flags the unexamined lm-evaluation-harness fork as a possible confound."
+      },
+      {
+        "label": "uncertainty_honesty",
+        "mark": "pass",
+        "note": "Five substantive caveats including the admission that no metric was produced, the uniform-prior init impact wasn't quantified, and the convention-vs-bug judgment is arguable \u2014 not padding."
+      },
+      {
+        "label": "suggested_followup",
+        "mark": "warn",
+        "note": "Run a small CPU-feasible reproducer that trains ~1M-param GIDD with a=2, a=1, then evaluates likelihood both ways, to show a measurable bpb divergence between training and inference schedules \u2014 this converts the static finding into a metric-moving one and would satisfy the contract's `## Metric delta:` requirement."
+      }
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "run_id": "bench-gidd-check-qc2_sweeps-r1-bf6084c2",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc2_sweeps",
+  "question_text": "Does the repo provide hyperparameter sweeps or scaling recipes for each model size (25M / 85M / 170M / 302M / 567M / 3B / 10B), or must the user hand-tune for each scale?",
+  "repeat_idx": 1,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0657,
+  "duration_ms": 14235,
+  "total_turns": 5,
+  "tool_calls": 4,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "unclear",
+    "confidence": 0.5,
+    "evidence": [
+      {
+        "file": "README.md",
+        "line": 17,
+        "snippet": "Specifically, we train two 3B models (masked and uniform diffusion) as well as a 10B parameter uniform diffusion model..."
+      },
+      {
+        "file": "notebooks/scaling_laws.ipynb",
+        "line": 1,
+        "snippet": "(notebook references model sizes 25M/85M/170M/302M/567M)"
+      },
+      {
+        "file": "gidd_easydel/diffusion_trainer/diffusion_config.py",
+        "line": 1,
+        "snippet": "diffusion_config.py (single config class, not per-scale recipes)"
+      }
+    ],
+    "notes": "The repo has scaling-laws notebooks that reference the small model sizes and a single shared config module, but no per-scale YAML/TOML sweep files or named recipes for each size were found \u2014 inspecting the notebooks would be needed to confirm whether explicit hyperparameters per scale are provided."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

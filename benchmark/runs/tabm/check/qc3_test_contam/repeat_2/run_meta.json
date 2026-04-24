@@ -1,0 +1,46 @@
+{
+  "run_id": "bench-tabm-check-qc3_test_contam-r2-4f8a007c",
+  "paper": "tabm",
+  "mode": "check",
+  "question_id": "qc3_test_contam",
+  "question_text": "Are model checkpoints evaluated on the test set multiple times with different hyperparameters (test-set contamination via selection)?",
+  "repeat_idx": 2,
+  "paper_url": "https://arxiv.org/abs/2410.24210",
+  "repo_slug": "yandex-research/tabm",
+  "repo_clone": "/tmp/bench-tabm-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0994,
+  "duration_ms": 19580,
+  "total_turns": 5,
+  "tool_calls": 4,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "refuted",
+    "confidence": 0.9,
+    "evidence": [
+      {
+        "file": "paper/bin/model.py",
+        "line": 646,
+        "snippet": "or metrics['val']['score'] > report['metrics']['val']['score']"
+      },
+      {
+        "file": "paper/bin/model.py",
+        "line": 631,
+        "snippet": "['val', 'test'], eval_batch_size"
+      },
+      {
+        "file": "paper/bin/tune.py",
+        "line": 185,
+        "snippet": "return report['metrics']['val']['score']"
+      }
+    ],
+    "notes": "Checkpoint and hyperparameter selection use the validation score only; the test set is merely computed alongside for logging, not used to choose among checkpoints or hyperparameters."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

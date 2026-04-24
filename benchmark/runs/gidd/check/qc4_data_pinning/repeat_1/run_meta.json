@@ -1,0 +1,51 @@
+{
+  "run_id": "bench-gidd-check-qc4_data_pinning-r1-a6398b66",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc4_data_pinning",
+  "question_text": "Is the training data (Nemotron-CC) pinned to a specific version / preprocessing recipe in the repo, or does the code assume the user reproduces the data pipeline independently?",
+  "repeat_idx": 1,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0873,
+  "duration_ms": 16619,
+  "total_turns": 4,
+  "tool_calls": 3,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "refuted",
+    "confidence": 0.85,
+    "evidence": [
+      {
+        "file": "args.py",
+        "line": 7,
+        "snippet": "default_data_files=\\\"/local/home/dvruette/nemotron_tokenized/\\\","
+      },
+      {
+        "file": "main_gpu.py",
+        "line": 11,
+        "snippet": "DATA_FILES = os.environ.get(\\\"DATA_FILES\\\", \\\"/local/home/dvruette/nemotron-cc_tokenized_shuffled/\\\")"
+      },
+      {
+        "file": "test_shuffling.ipynb",
+        "line": 197,
+        "snippet": "all_jsonls = sorted(glob.glob(f\\\"/pub/hofmann-scratch/data/Nemotron-CC/**/*.jsonl.zstd\\\", recursive=True))"
+      },
+      {
+        "file": "test_shuffling.ipynb",
+        "line": 34,
+        "snippet": "data_files = \\\"/local/home/dvruette/nemotron_tokenized/data.commoncrawl.org/contrib/Nemotron/Nemotron-CC/**/*.parquet\\\""
+      }
+    ],
+    "notes": "\"Data paths are hardcoded to an author's local filesystem (e.g. `/local/home/dvruette/nemotron_tokenized/`) with no pinned version/hash; the user must reproduce tokenization/shuffling via `test_shuffling.ipynb` and `shuffle_dataset.py` independently."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

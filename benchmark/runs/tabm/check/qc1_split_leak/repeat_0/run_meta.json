@@ -1,0 +1,51 @@
+{
+  "run_id": "bench-tabm-check-qc1_split_leak-r0-9445955e",
+  "paper": "tabm",
+  "mode": "check",
+  "question_id": "qc1_split_leak",
+  "question_text": "Is the train/validation/test split leak-free? Any normalization or feature engineering fit on the full dataset before splitting?",
+  "repeat_idx": 0,
+  "paper_url": "https://arxiv.org/abs/2410.24210",
+  "repo_slug": "yandex-research/tabm",
+  "repo_clone": "/tmp/bench-tabm-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.2979,
+  "duration_ms": 12324,
+  "total_turns": 4,
+  "tool_calls": 3,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.9,
+    "evidence": [
+      {
+        "file": "paper/lib/data.py",
+        "line": 267,
+        "snippet": "X_num_train = X_num['train']"
+      },
+      {
+        "file": "paper/lib/data.py",
+        "line": 284,
+        "snippet": "normalizer.fit(X_num_train)"
+      },
+      {
+        "file": "paper/lib/data.py",
+        "line": 285,
+        "snippet": "X_num = {k: normalizer.transform(v) for k, v in X_num.items()}"
+      },
+      {
+        "file": "paper/lib/data.py",
+        "line": 295,
+        "snippet": "mask = np.array([len(np.unique(x)) > 1 for x in X_num['train'].T])"
+      }
+    ],
+    "notes": "Numerical normalizer (StandardScaler / QuantileTransformer) and constant-column mask are fit only on the train partition, then applied to val/test \u2014 no leakage in the preprocessing path."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

@@ -1,0 +1,46 @@
+{
+  "run_id": "bench-gidd-check-qc5_interp_param-r1-f7fe914e",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc5_interp_param",
+  "question_text": "Does the repo expose the interpolation parameter between masked and uniform diffusion (the paper's main methodological novelty) as a first-class configurable in the training config?",
+  "repeat_idx": 1,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0651,
+  "duration_ms": 15771,
+  "total_turns": 4,
+  "tool_calls": 3,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.9,
+    "evidence": [
+      {
+        "file": "gidd_easydel/diffusion_trainer/diffusion_config.py",
+        "line": 33,
+        "snippet": "mixing_rate: str | MixingRate = field(default=\\\"linear\\\", metadata={\\\"help\\\": \\\"Mixing schedule rate, can be 'linear' or any instance of `MixingRate`.\\\"})"
+      },
+      {
+        "file": "gidd_easydel/diffusion_trainer/diffusion_config.py",
+        "line": 36,
+        "snippet": "hybrid_mixing_scale: float = field(default=1.0, metadata={\\\"help\\\": \\\"Sigmoid scale for the hybrid mixing schedule.\\\"})"
+      },
+      {
+        "file": "gidd_easydel/diffusion_trainer/diffusion_config.py",
+        "line": 37,
+        "snippet": "hybrid_mixing_shift: float = field(default=0.0, metadata={\\\"help\\\": \\\"Sigmoid shift for the hybrid mixing schedule.\\\"})"
+      }
+    ],
+    "notes": "The DiffusionConfig exposes the mask/uniform interpolation (hybrid mixing) parameters \u2014 mixing_rate, hybrid_mixing_scale, and hybrid_mixing_shift \u2014 as first-class dataclass fields configurable at training time."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

@@ -1,0 +1,51 @@
+{
+  "run_id": "bench-gidd-check-qc1_cpu_tpu-r0-272e9707",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc1_cpu_tpu",
+  "question_text": "Is the codebase structured so CPU-only or single-GPU inference is feasible, or is it fundamentally tied to TPU / JAX distributed training? Cite the dependency declarations or hardware-specific code paths.",
+  "repeat_idx": 0,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0827,
+  "duration_ms": 14705,
+  "total_turns": 4,
+  "tool_calls": 3,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.9,
+    "evidence": [
+      {
+        "file": "README.md",
+        "line": 62,
+        "snippet": "The training code is written primarily to be run on TPUs but can also be run on GPUs."
+      },
+      {
+        "file": "main_gpu.py",
+        "line": 7,
+        "snippet": "SAVE_DIRECTORY = os.environ.get(\\\"SAVE_DIRECTORY\\\", \\\"outputs/diffusion_trainer\\\")"
+      },
+      {
+        "file": "requirements.txt",
+        "line": 7,
+        "snippet": "jax==0.7.1"
+      },
+      {
+        "file": "README.md",
+        "line": 80,
+        "snippet": "uv pip install -U jax[tpu]==0.7.1"
+      }
+    ],
+    "notes": "\"The repo is JAX-based (not PyTorch) but supports GPU via a dedicated `main_gpu.py` entrypoint and a `jax[cuda]`/`jax[tpu]` install split; single-GPU inference is feasible though TPU is the primary target, and there's no CPU-optimized path."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

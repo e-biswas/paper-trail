@@ -99,6 +99,7 @@ For Quick Check: same setup, just keep the mode chip on Quick Check and type a t
 | Understand the backend ↔ frontend wire format | [docs/integration.md](docs/integration.md) |
 | See the submission narrative and roadmap | [docs/pitch.md](docs/pitch.md) |
 | Read the judge-facing validity defense (7 layers) | [docs/validity.md](docs/validity.md) |
+| See the consistency benchmark (30 runs on 2 unseen papers, κ + Jaccard + validator) | [benchmark/results/FINDINGS.md](benchmark/results/FINDINGS.md) |
 | Dig into backend modules | [docs/backend/README.md](docs/backend/README.md) |
 | Dig into frontend modules | [docs/frontend/README.md](docs/frontend/README.md) |
 | Build journals | [diary/claude.md](diary/claude.md), [diary/eb.md](diary/eb.md) |

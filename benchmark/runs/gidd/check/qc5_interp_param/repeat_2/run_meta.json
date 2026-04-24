@@ -1,0 +1,41 @@
+{
+  "run_id": "bench-gidd-check-qc5_interp_param-r2-5b834b80",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc5_interp_param",
+  "question_text": "Does the repo expose the interpolation parameter between masked and uniform diffusion (the paper's main methodological novelty) as a first-class configurable in the training config?",
+  "repeat_idx": 2,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0813,
+  "duration_ms": 14565,
+  "total_turns": 5,
+  "tool_calls": 4,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.88,
+    "evidence": [
+      {
+        "file": "args.py",
+        "line": 52,
+        "snippet": "parser.add_argument(\\\"--hybrid_mixing_scale\\\", type=float, default=1.0, help=\\\"Scale for hybrid mixing schedule.\\\")"
+      },
+      {
+        "file": "args.py",
+        "line": 53,
+        "snippet": "parser.add_argument(\\\"--hybrid_mixing_shift\\\", type=float, default=0.0, help=\\\"Shift for hybrid mixing schedule.\\\")"
+      }
+    ],
+    "notes": "The mask/uniform hybrid mixing schedule is exposed as first-class CLI training config via `--hybrid_mixing_scale` and `--hybrid_mixing_shift` under the `# mixing schedule & diffusion loss` section of args.py."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

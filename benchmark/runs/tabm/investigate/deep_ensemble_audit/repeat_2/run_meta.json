@@ -1,0 +1,62 @@
+{
+  "run_id": "bench-tabm-investigate-deep_ensemble_audit-r2-654ed70f",
+  "paper": "tabm",
+  "mode": "investigate",
+  "question_id": "deep_ensemble_audit",
+  "question_text": "TabM reports that parameter-efficient ensembling via BatchEnsemble-style adapters matches full deep-ensemble accuracy on tabular benchmarks at a fraction of the parameter count. I want to independently audit whether the repo's training and evaluation protocol could systematically bias this comparison in TabM's favor, or whether it is honestly reproducible. Specifically: (a) is the ensemble size k actually varied in the reported sweeps, or is there a single hard-coded value that the reported numbers implicitly depend on; (b) are per-member predictions aggregated via the claimed mean-logit rule, or does the code apply a different reduction (mean-probs, majority vote, learned weighting) that would break the comparison to naive deep ensembles; (c) are the reported per-benchmark hyperparameters traceable to config files in the repo, or are any reported numbers produced from ad-hoc tuning not committed to the code; (d) is the parameter-count accounting consistent across the TabM-vs-deep-ensemble comparison (does it include or exclude adapter parameters, embeddings, shared backbones?). Produce a full investigation with file:line evidence and report an honest verdict. If the implementation checks out cleanly, say so with evidence. Do NOT fabricate a problem to find.",
+  "repeat_idx": 2,
+  "paper_url": "https://arxiv.org/abs/2410.24210",
+  "repo_slug": "yandex-research/tabm",
+  "repo_clone": "/tmp/bench-tabm-deep-2",
+  "reached_session_end": true,
+  "ok": false,
+  "stop_reason": "turn_cap",
+  "cost_usd": 1.2343,
+  "duration_ms": 197243,
+  "total_turns": 33,
+  "tool_calls": 32,
+  "claim_summary": "TabM, a parameter-efficient ensemble of MLPs using BatchEnsemble-style weight sharing with k=32 submodels, outperforms prior tabular DL models on public benchmarks. The reproducibility-relevant claim under test here is the evaluation pipeline that produces the paper's reported metric for TabM on the fixture dataset shipped with this repo.",
+  "hypotheses": [
+    {
+      "id": "h1",
+      "name": "Imputation-before-split leakage",
+      "confidence": 0.08,
+      "rank": 1
+    },
+    {
+      "id": "h2",
+      "name": "Patient/entity-level split bug",
+      "confidence": 0.1,
+      "rank": 2
+    },
+    {
+      "id": "h3",
+      "name": "Metric implementation mismatch",
+      "confidence": 0.05,
+      "rank": 3
+    },
+    {
+      "id": "h4",
+      "name": "Ensemble aggregation rule disagreement with paper",
+      "confidence": 0.2,
+      "rank": 4
+    },
+    {
+      "id": "h5",
+      "name": "Test-set contamination via selection",
+      "confidence": 0.12,
+      "rank": 5
+    }
+  ],
+  "verdicts": [],
+  "quick_check_verdict": null,
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": [
+    "claim_tested",
+    "evidence_gathered",
+    "fix_applied",
+    "remaining_uncertainty",
+    "root_cause"
+  ]
+}

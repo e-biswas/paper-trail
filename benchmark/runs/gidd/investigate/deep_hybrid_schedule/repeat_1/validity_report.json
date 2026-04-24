@@ -1,0 +1,50 @@
+{
+  "run_id": "bench-gidd-investigate-deep_hybrid_schedule-r1-379add1a",
+  "ok": true,
+  "summary": "Investigator correctly aborted without a fix when the local sandbox couldn't run JAX/TPU code, and produced an honest, well-cited static audit of five plausible latent issues.",
+  "error": null,
+  "cost_usd": 0.13648500000000002,
+  "duration_ms": 16825,
+  "payload": {
+    "overall": "acceptable",
+    "summary": "Investigator correctly aborted without a fix when the local sandbox couldn't run JAX/TPU code, and produced an honest, well-cited static audit of five plausible latent issues.",
+    "confidence": 0.78,
+    "checks": [
+      {
+        "label": "hypothesis_coverage",
+        "mark": "pass",
+        "note": "Five hypotheses span loss-side (mask_token_id default), likelihood integration (SNR grid), schedule wiring (hybrid_scale), data pipeline (dedup), and shuffle finalization \u2014 a reasonable cross-section of reproducibility failure classes for a scaling-law repo."
+      },
+      {
+        "label": "evidence_quality",
+        "mark": "pass",
+        "note": "Every static claim is tied to a specific file:line (e.g., loss.py:27/85, likelihood.py:155/167\u2013175, diffusion_trainer.py:76, data.py:162) and the environment refutation in f1 is concrete about missing jax/flax and the absence of a lightweight eval entrypoint."
+      },
+      {
+        "label": "fix_minimality",
+        "mark": "pass",
+        "note": "No fix was applied; the `## Fix applied:` section correctly states none was attempted because no executable metric delta was producible \u2014 consistent with the operating contract."
+      },
+      {
+        "label": "causal_link",
+        "mark": "pass",
+        "note": "No metric delta was reported and none was claimed, so there is no spurious causal link to audit; the investigator explicitly declined to assert causation without runtime evidence."
+      },
+      {
+        "label": "alternative_explanations",
+        "mark": "warn",
+        "note": "The dossier notes the published PPLs may come from the `lm-evaluation-harness@gidd-v2` fork rather than `likelihood.py`, but does not enumerate other non-bug explanations (e.g., checkpoint selection, tokenizer mismatch, SNR flag defaults) with equal weight when discussing the h2 uncertainty."
+      },
+      {
+        "label": "uncertainty_honesty",
+        "mark": "pass",
+        "note": "`Remaining uncertainty` is substantive: it names five specific unverified items (external GiddLoss callers, ELBO grid bias, harness provenance, upstream dedup, TPU-gated discrimination) rather than generic hedging."
+      },
+      {
+        "label": "suggested_followup",
+        "mark": "warn",
+        "note": "Clone `dvruette/lm-evaluation-harness@gidd-v2` and diff its diffusion-model likelihood integrator against `gidd_easydel/likelihood.py` \u2014 this is the cheapest static check that would discriminate h2/h3 without needing TPUs or the 1.3 TB dataset, and the investigator flagged it as unknown but did not attempt it."
+      }
+    ]
+  }
+}

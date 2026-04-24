@@ -1,0 +1,62 @@
+{
+  "run_id": "bench-gidd-investigate-deep_hybrid_schedule-r1-379add1a",
+  "paper": "gidd",
+  "mode": "investigate",
+  "question_id": "deep_hybrid_schedule",
+  "question_text": "GIDD's central methodological claim is that interpolating between masked and uniform diffusion via a hybrid noise schedule (parameterized by `hybrid_mixing_scale` and `hybrid_mixing_shift`) yields better scaling behavior than pure masked diffusion alone. I want to independently audit whether the repo's actual training and inference code exercise this hybrid schedule faithfully, or whether the reported scaling curves could come from configurations that silently collapse to pure masked diffusion. Specifically: (a) trace `hybrid_mixing_scale` and `hybrid_mixing_shift` from the training YAML/config through to the loss computation and the forward noise process; (b) identify any default values, branch conditions, or zero-value short-circuits that would silently bypass the interpolation; (c) check whether the hybrid schedule is implemented consistently in BOTH the JAX training path and the PyTorch inference-fallback path (`modeling_gidd_hf.py`) \u2014 a one-path-only implementation would be a reproducibility risk; (d) verify the noise sampler actually consumes both parameters (not just one). Produce a full investigation with file:line evidence and report an honest verdict \u2014 including 'no issue found' if the implementation checks out. Do NOT fabricate a problem to find.",
+  "repeat_idx": 1,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-deep-1",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 1.5985,
+  "duration_ms": 244456,
+  "total_turns": 28,
+  "tool_calls": 27,
+  "claim_summary": "Discrete diffusion language models, when compared across masked, uniform, and hybrid noise types with carefully tuned batch size and learning rate, exhibit scaling-law behavior where uniform diffusion favors parameter-heavy compute-optimal scaling \u2014 and these laws extrapolate accurately to 3B and 10B parameter models trained for up to 10^22 FLOPs on the Nemotron-CC corpus.",
+  "hypotheses": [
+    {
+      "id": "h1",
+      "name": "mask_token_id default makes last vocab token get silently masked",
+      "confidence": 0.35,
+      "rank": 1
+    },
+    {
+      "id": "h2",
+      "name": "likelihood linear noise schedule mis-samples log-SNR",
+      "confidence": 0.3,
+      "rank": 2
+    },
+    {
+      "id": "h3",
+      "name": "hybrid_scale not threaded through likelihood path",
+      "confidence": 0.25,
+      "rank": 3
+    },
+    {
+      "id": "h4",
+      "name": "training-data pipeline does not dedup before shuffle",
+      "confidence": 0.2,
+      "rank": 4
+    },
+    {
+      "id": "h5",
+      "name": "reservoir shuffle yields finalization bug (hang or skip)",
+      "confidence": 0.15,
+      "rank": 5
+    }
+  ],
+  "verdicts": [],
+  "quick_check_verdict": null,
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": [
+    "claim_tested",
+    "evidence_gathered",
+    "fix_applied",
+    "remaining_uncertainty",
+    "root_cause"
+  ]
+}

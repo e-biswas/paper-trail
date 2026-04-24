@@ -1,0 +1,56 @@
+{
+  "run_id": "bench-gidd-investigate-deep_hybrid_schedule-r0-9ac2a4d8",
+  "paper": "gidd",
+  "mode": "investigate",
+  "question_id": "deep_hybrid_schedule",
+  "question_text": "GIDD's central methodological claim is that interpolating between masked and uniform diffusion via a hybrid noise schedule (parameterized by `hybrid_mixing_scale` and `hybrid_mixing_shift`) yields better scaling behavior than pure masked diffusion alone. I want to independently audit whether the repo's actual training and inference code exercise this hybrid schedule faithfully, or whether the reported scaling curves could come from configurations that silently collapse to pure masked diffusion. Specifically: (a) trace `hybrid_mixing_scale` and `hybrid_mixing_shift` from the training YAML/config through to the loss computation and the forward noise process; (b) identify any default values, branch conditions, or zero-value short-circuits that would silently bypass the interpolation; (c) check whether the hybrid schedule is implemented consistently in BOTH the JAX training path and the PyTorch inference-fallback path (`modeling_gidd_hf.py`) \u2014 a one-path-only implementation would be a reproducibility risk; (d) verify the noise sampler actually consumes both parameters (not just one). Produce a full investigation with file:line evidence and report an honest verdict \u2014 including 'no issue found' if the implementation checks out. Do NOT fabricate a problem to find.",
+  "repeat_idx": 0,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-deep-0",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 1.3027,
+  "duration_ms": 228219,
+  "total_turns": 18,
+  "tool_calls": 17,
+  "claim_summary": "The paper claims discrete diffusion language models (DLMs) \u2014 specifically uniform diffusion \u2014 scale competitively with autoregressive LMs, with parameter-heavy scaling laws derived from careful tuning of batch size and learning rate. The fixture likely probes a narrower reproducibility-relevant sub-claim (e.g., noise-schedule invariance, GIDD ELBO weighting, or batch-size/LR optimum), which I need to identify by scanning the repo.",
+  "hypotheses": [
+    {
+      "id": "h1",
+      "name": "mask-token logit suppression breaks uniform diffusion objective",
+      "confidence": 0.55,
+      "rank": 1
+    },
+    {
+      "id": "h2",
+      "name": "test/API name drift hides a real get_loss_weights bug (failure-class 5)",
+      "confidence": 0.45,
+      "rank": 2
+    },
+    {
+      "id": "h3",
+      "name": "GeneralMixingDistribution disabled",
+      "confidence": 0.25,
+      "rank": 3
+    },
+    {
+      "id": "h4",
+      "name": "no small-sample reproducibility fixture exists",
+      "confidence": 0.8,
+      "rank": 4
+    }
+  ],
+  "verdicts": [],
+  "quick_check_verdict": null,
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": [
+    "claim_tested",
+    "evidence_gathered",
+    "fix_applied",
+    "remaining_uncertainty",
+    "root_cause"
+  ]
+}

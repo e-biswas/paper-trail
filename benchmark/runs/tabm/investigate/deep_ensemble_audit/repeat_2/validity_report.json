@@ -1,0 +1,50 @@
+{
+  "run_id": "bench-tabm-investigate-deep_ensemble_audit-r2-654ed70f",
+  "ok": true,
+  "summary": "Investigator correctly declined to fabricate a fix on a clean repository, grounding each ruled-out failure class in specific file:line citations.",
+  "error": null,
+  "cost_usd": 0.13293075,
+  "duration_ms": 12026,
+  "payload": {
+    "overall": "strong",
+    "summary": "Investigator correctly declined to fabricate a fix on a clean repository, grounding each ruled-out failure class in specific file:line citations.",
+    "confidence": 0.86,
+    "checks": [
+      {
+        "label": "hypothesis_coverage",
+        "mark": "pass",
+        "note": "Five hypotheses span the standard tabular-DL leakage taxonomy: preprocessing leakage, group-split bugs, metric mismatch, aggregation rule, and tuning/test contamination."
+      },
+      {
+        "label": "evidence_quality",
+        "mark": "pass",
+        "note": "Every finding ties to concrete citations (data.py:284, data.py:322/340, model.py:537-543, tune.py:185, model.py:654/662-666), not pattern-matching."
+      },
+      {
+        "label": "fix_minimality",
+        "mark": "pass",
+        "note": "No diff was produced; per the operating contract the investigator declined to write a speculative fix against a clean baseline."
+      },
+      {
+        "label": "causal_link",
+        "mark": "pass",
+        "note": "No metric_delta is claimed because no fix was applied \u2014 consistent with the 'no bug found' verdict."
+      },
+      {
+        "label": "alternative_explanations",
+        "mark": "pass",
+        "note": "The 'remaining uncertainty' section explicitly flags that upstream split integrity is assumed and that end-to-end numerical reproduction was not performed, naming these as non-bugs rather than hiding them."
+      },
+      {
+        "label": "uncertainty_honesty",
+        "mark": "pass",
+        "note": "Uncertainty block is substantive: explicitly acknowledges no end-to-end run, unverified upstream splits, un-cross-referenced param counts, and the mean-probs vs mean-logits convention choice."
+      },
+      {
+        "label": "suggested_followup",
+        "mark": "pass",
+        "note": "Cross-reference Table 2/Table 5 parameter counts in the PDF against `lib.deep.get_n_parameters` output for TabM vs deep-ensemble baselines, since the investigator flagged this as the one accounting path it did not numerically verify."
+      }
+    ]
+  }
+}

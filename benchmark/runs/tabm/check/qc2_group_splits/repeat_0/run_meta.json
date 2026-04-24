@@ -1,0 +1,41 @@
+{
+  "run_id": "bench-tabm-check-qc2_group_splits-r0-069bd94e",
+  "paper": "tabm",
+  "mode": "check",
+  "question_id": "qc2_group_splits",
+  "question_text": "Does the repo use group-aware splits when the underlying benchmark has a grouping column, or does it rely on random row-level splits?",
+  "repeat_idx": 0,
+  "paper_url": "https://arxiv.org/abs/2410.24210",
+  "repo_slug": "yandex-research/tabm",
+  "repo_clone": "/tmp/bench-tabm-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0852,
+  "duration_ms": 18846,
+  "total_turns": 5,
+  "tool_calls": 4,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.85,
+    "evidence": [
+      {
+        "file": "paper/tools/prepare_tabred.py",
+        "line": 23,
+        "snippet": "part: np.load(src / f'split-default/{part}_idx.npy')"
+      },
+      {
+        "file": "example.ipynb",
+        "line": 145,
+        "snippet": "trainval_idx, test_idx = sklearn.model_selection.train_test_split("
+      }
+    ],
+    "notes": "\"For benchmark datasets like TabReD the code loads the benchmark's pre-defined (group/time-aware) split indices from disk rather than resplitting, while ad-hoc usage in example.ipynb falls back to random row-level train_test_split."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

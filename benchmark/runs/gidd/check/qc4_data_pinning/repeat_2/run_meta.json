@@ -1,0 +1,51 @@
+{
+  "run_id": "bench-gidd-check-qc4_data_pinning-r2-7ef2d2e4",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc4_data_pinning",
+  "question_text": "Is the training data (Nemotron-CC) pinned to a specific version / preprocessing recipe in the repo, or does the code assume the user reproduces the data pipeline independently?",
+  "repeat_idx": 2,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.1167,
+  "duration_ms": 11494,
+  "total_turns": 2,
+  "tool_calls": 1,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.9,
+    "evidence": [
+      {
+        "file": "README.md",
+        "line": 99,
+        "snippet": "The exact data split that was used for training, already pre-tokenized and pre-shuffled, is available here: https://huggingface.co/datasets/dvruette/gidd-nemotron-cc-pretok"
+      },
+      {
+        "file": "nemotron-cc-split.txt",
+        "line": 1,
+        "snippet": "/local/home/dvruette/nemotron_tokenized/data.commoncrawl.org/contrib/Nemotron/Nemotron-CC/data/quality=high/kind=actual/kind2=actual/CC-MAIN-2013-20-part-00006.parquet"
+      },
+      {
+        "file": "args.py",
+        "line": 64,
+        "snippet": "parser.add_argument(\\\"--tokenizer_id\\\", type=str, default=\\\"dvruette/nemotron-cc-bpe\\\", help=\\\"Tokenizer ID for the model.\\\")"
+      },
+      {
+        "file": "main_gpu.py",
+        "line": 11,
+        "snippet": "DATA_FILES = os.environ.get(\\\"DATA_FILES\\\", \\\"/local/home/dvruette/nemotron-cc_tokenized_shuffled/\\\")"
+      }
+    ],
+    "notes": "\"The repo pins the exact training split via a published pre-tokenized/pre-shuffled HF dataset (dvruette/gidd-nemotron-cc-pretok), a committed nemotron-cc-split.txt file list, and a fixed tokenizer ID, so users are not expected to reproduce the preprocessing pipeline independently."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

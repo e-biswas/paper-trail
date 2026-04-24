@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "per_group": {
+    "gidd/check/qc1_cpu_tpu": {
+      "n_repeats": 3,
+      "crashed": 0,
+      "verdicts": [
+        "confirmed",
+        "unclear",
+        "unclear"
+      ],
+      "modal_verdict": "unclear",
+      "verdict_agreement": 0.667,
+      "evidence_file_jaccard_pairwise_mean": 0.289,
+      "evidence_line_jaccard_pairwise_mean": 0.133,
+      "confidence_mean": 0.667,
+      "confidence_sd": 0.202,
+      "tool_calls_mean": 3.33,
+      "tool_calls_sd": 0.58,
+      "cost_mean_usd": 0.0745,
+      "cost_sd_usd": 0.0119,
+      "duration_mean_s": 15.5,
+      "duration_sd_s": 2.2
+    },
+    "gidd/check/qc2_sweeps": {
+      "n_repeats": 3,
+      "crashed": 0,
+      "verdicts": [
+        "refuted",
+        "unclear",
+        "refuted"
+      ],
+      "modal_verdict": "refuted",
+      "verdict_agreement": 0.667,
+      "evidence_file_jaccard_pairwise_mean": 0.383,
+      "evidence_line_jaccard_pairwise_mean": 0.111,
+      "confidence_mean": 0.713,
+      "confidence_sd": 0.185,
+      "tool_calls_mean": 4.0,
+      "tool_calls_sd": 0.0,
+      "cost_mean_usd": 0.0729,
+      "cost_sd_usd": 0.0104,
+      "duration_mean_s": 15.4,
+      "duration_sd_s": 1.2
+    },
+    "gidd/check/qc3_checkpoints": {
+      "n_repeats": 3,
+      "crashed": 0,
+      "verdicts": [
+        "confirmed",
+        "confirmed",
+        "confirmed"
+      ],
+      "modal_verdict": "confirmed",
+      "verdict_agreement": 1.0,
+      "evidence_file_jaccard_pairwise_mean": 1.0,
+      "evidence_line_jaccard_pairwise_mean": 0.576,
+      "confidence_mean": 0.98,
+      "confidence_sd": 0.0,
+      "tool_calls_mean": 2.33,
+      "tool_calls_sd": 0.58,
+      "cost_mean_usd": 0.1413,
+      "cost_sd_usd": 0.0657,
+      "duration_mean_s": 13.4,
+      "duration_sd_s": 1.2
+    },
+    "gidd/check/qc4_data_pinning": {
+      "n_repeats": 3,
+      "crashed": 0,
+      "verdicts": [
+        "confirmed",
+        "refuted",
+        "confirmed"
+      ],
+      "modal_verdict": "confirmed",
+      "verdict_agreement": 0.667,
+      "evidence_file_jaccard_pairwise_mean": 0.389,
+      "evidence_line_jaccard_pairwise_mean": 0.248,
+      "confidence_mean": 0.89,
+      "confidence_sd": 0.036,
+      "tool_calls_mean": 2.0,
+      "tool_calls_sd": 1.0,
+      "cost_mean_usd": 0.108,
+      "cost_sd_usd": 0.018,
+      "duration_mean_s": 13.6,
+      "duration_sd_s": 2.7
+    },
+    "gidd/check/qc5_interp_param": {
+      "n_repeats": 3,
+      "crashed": 0,
+      "verdicts": [
+        "confirmed",
+        "confirmed",
+        "confirmed"
+      ],
+      "modal_verdict": "confirmed",
+      "verdict_agreement": 1.0,
+      "evidence_file_jaccard_pairwise_mean": 0.167,
+      "evidence_line_jaccard_pairwise_mean": 0.25,
+      "confidence_mean": 0.887,
+      "confidence_sd": 0.012,
+      "tool_calls_mean": 3.67,
+      "tool_calls_sd": 0.58,
+      "cost_mean_usd": 0.0785,
+      "cost_sd_usd": 0.0122,
+      "duration_mean_s": 16.3,
+      "duration_sd_s": 2.0
+    },
+    "gidd/investigate/deep_hybrid_schedule": {
+      "n_repeats": 3,
+      "top_hypothesis_names": [
+        null,
+        null,
+        "inference-side silent scale hardcoding"
+      ],
+      "modal_top_hypothesis": "inference-side silent scale hardcoding",
+      "top_hypothesis_agreement": 0.333,
+      "conclusion_types": [
+        "no_actionable_bug",
+        "no_actionable_bug",
+        "no_actionable_bug"
+      ],
+      "modal_conclusion": "no_actionable_bug",
+      "conclusion_agreement": 1.0,
+      "fix_files_jaccard_pairwise_mean": 1.0,
+      "any_fix_applied_fraction": 0.0,
+      "metric_delta_recorded_fraction": 0.0,
+      "metric_delta_magnitude_mean": null,
+      "metric_delta_magnitude_sd": null,
+      "dossier_completeness_fraction": 1.0,
+      "validator_overall_mode": "acceptable",
+      "validator_overalls": [
+        "acceptable",
+        "acceptable",
+        "acceptable"
+      ],
+      "validator_pass_fraction_mean": 0.667,
+      "validator_pass_fraction_sd": 0.082,
+      "validator_confidence_mean": 0.76,
+      "cost_mean_usd": 1.643,
+      "cost_sd_usd": 0.3646,
+      "duration_mean_s": 249.4,
+      "duration_sd_s": 24.1,
+      "tool_calls_mean": 25.33,
+      "tool_calls_sd": 7.64
+    },
+    "tabm/check/qc1_split_leak": {
+      "n_repeats": 3,
+      "crashed": 0,
+      "verdicts": [
+        "confirmed",
+        "confirmed",
+        "confirmed"
+      ],
+      "modal_verdict": "confirmed",
+      "verdict_agreement": 1.0,
+      "evidence_file_jaccard_pairwise_mean": 0.333,
+      "evidence_line_jaccard_pairwise_mean": 0.083,
+      "confidence_mean": 0.913,
+      "confidence_sd": 0.012,
+      "tool_calls_mean": 2.33,
+      "tool_calls_sd": 0.58,
+      "cost_mean_usd": 0.2173,
+      "cost_sd_usd": 0.0698,
+      "duration_mean_s": 14.8,
+      "duration_sd_s": 3.0
+    },
+    "tabm/check/qc2_group_splits": {
+      "n_repeats": 3,
+      "crashed": 0,
+      "verdicts": [
+        "confirmed",
+        "refuted",
+        "unclear"
+      ],
+      "modal_verdict": "confirmed",
+      "verdict_agreement": 0.333,
+      "evidence_file_jaccard_pairwise_mean": 0.333,
+      "evidence_line_jaccard_pairwise_mean": 0.222,
+      "confidence_mean": 0.75,
+      "confidence_sd": 0.173,
+      "tool_calls_mean": 4.0,
+      "tool_calls_sd": 0.0,
+      "cost_mean_usd": 0.1085,
+      "cost_sd_usd": 0.0526,
+      "duration_mean_s": 17.7,
+      "duration_sd_s": 1.1
+    },
+    "tabm/check/qc3_test_contam": {
+      "n_repeats": 3,
+      "crashed": 0,
+      "verdicts": [
+        "refuted",
+        "refuted",
+        "refuted"
+      ],
+      "modal_verdict": "refuted",
+      "verdict_agreement": 1.0,
+      "evidence_file_jaccard_pairwise_mean": 0.556,
+      "evidence_line_jaccard_pairwise_mean": 0.225,
+      "confidence_mean": 0.907,
+      "confidence_sd": 0.012,
+      "tool_calls_mean": 3.67,
+      "tool_calls_sd": 0.58,
+      "cost_mean_usd": 0.0863,
+      "cost_sd_usd": 0.0132,
+      "duration_mean_s": 20.9,
+      "duration_sd_s": 3.7
+    },
+    "tabm/investigate/deep_ensemble_audit": {
+      "n_repeats": 3,
+      "top_hypothesis_names": [
+        null,
+        null,
+        null
+      ],
+      "modal_top_hypothesis": null,
+      "top_hypothesis_agreement": 0.0,
+      "conclusion_types": [
+        "no_actionable_bug",
+        "no_actionable_bug",
+        "no_actionable_bug"
+      ],
+      "modal_conclusion": "no_actionable_bug",
+      "conclusion_agreement": 1.0,
+      "fix_files_jaccard_pairwise_mean": 1.0,
+      "any_fix_applied_fraction": 0.0,
+      "metric_delta_recorded_fraction": 0.0,
+      "metric_delta_magnitude_mean": null,
+      "metric_delta_magnitude_sd": null,
+      "dossier_completeness_fraction": 1.0,
+      "validator_overall_mode": "strong",
+      "validator_overalls": [
+        "acceptable",
+        "strong",
+        "strong"
+      ],
+      "validator_pass_fraction_mean": 0.857,
+      "validator_pass_fraction_sd": 0.247,
+      "validator_confidence_mean": 0.84,
+      "cost_mean_usd": 1.6789,
+      "cost_sd_usd": 0.5403,
+      "duration_mean_s": 233.9,
+      "duration_sd_s": 31.9,
+      "tool_calls_mean": 35.0,
+      "tool_calls_sd": 3.61
+    }
+  },
+  "aggregates": {
+    "gidd/check": {
+      "n_questions": 5,
+      "mean_verdict_agreement": 0.8,
+      "mean_evidence_file_jaccard": 0.446,
+      "mean_evidence_line_jaccard": 0.264,
+      "mean_confidence_sd": 0.087,
+      "fleiss_kappa": {
+        "applicable": true,
+        "n_questions": 5,
+        "n_repeats": 3,
+        "kappa": 0.286
+      },
+      "mean_cost_usd": 0.095,
+      "mean_duration_s": 14.8
+    },
+    "gidd/investigate": {
+      "n_questions": 1,
+      "mean_top_hypothesis_agreement": 0.333,
+      "mean_conclusion_agreement": 1.0,
+      "modal_conclusions": [
+        "no_actionable_bug"
+      ],
+      "mean_fix_files_jaccard": 1.0,
+      "dossier_completeness_fraction": 1.0,
+      "mean_validator_pass_fraction": 0.667,
+      "mean_cost_usd": 1.643,
+      "mean_duration_s": 249.4
+    },
+    "tabm/check": {
+      "n_questions": 3,
+      "mean_verdict_agreement": 0.778,
+      "mean_evidence_file_jaccard": 0.407,
+      "mean_evidence_line_jaccard": 0.177,
+      "mean_confidence_sd": 0.066,
+      "fleiss_kappa": {
+        "applicable": true,
+        "n_questions": 3,
+        "n_repeats": 3,
+        "kappa": 0.438
+      },
+      "mean_cost_usd": 0.1374,
+      "mean_duration_s": 17.8
+    },
+    "tabm/investigate": {
+      "n_questions": 1,
+      "mean_top_hypothesis_agreement": 0.0,
+      "mean_conclusion_agreement": 1.0,
+      "modal_conclusions": [
+        "no_actionable_bug"
+      ],
+      "mean_fix_files_jaccard": 1.0,
+      "dossier_completeness_fraction": 1.0,
+      "mean_validator_pass_fraction": 0.857,
+      "mean_cost_usd": 1.6789,
+      "mean_duration_s": 233.9
+    }
+  }
+}

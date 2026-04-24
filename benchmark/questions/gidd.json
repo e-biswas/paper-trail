@@ -1,0 +1,35 @@
+{
+  "name": "gidd",
+  "full_title": "Scaling Behavior of Discrete Diffusion Language Models",
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_url": "https://github.com/dvruette/gidd-easydel.git",
+  "repo_slug": "dvruette/gidd-easydel",
+  "local_clone_root": "/tmp/bench-gidd",
+  "note": "Post-training-cutoff (Dec 2025) discrete diffusion LM paper. TPU-scale, 10B params. A domain the agent wasn't designed for.",
+  "quick_checks": [
+    {
+      "id": "qc1_cpu_tpu",
+      "question": "Is the codebase structured so CPU-only or single-GPU inference is feasible, or is it fundamentally tied to TPU / JAX distributed training? Cite the dependency declarations or hardware-specific code paths."
+    },
+    {
+      "id": "qc2_sweeps",
+      "question": "Does the repo provide hyperparameter sweeps or scaling recipes for each model size (25M / 85M / 170M / 302M / 567M / 3B / 10B), or must the user hand-tune for each scale?"
+    },
+    {
+      "id": "qc3_checkpoints",
+      "question": "Are pretrained model checkpoints published externally (HuggingFace or similar) so inference-only evaluation is feasible without a full training run? Cite the reference if any."
+    },
+    {
+      "id": "qc4_data_pinning",
+      "question": "Is the training data (Nemotron-CC) pinned to a specific version / preprocessing recipe in the repo, or does the code assume the user reproduces the data pipeline independently?"
+    },
+    {
+      "id": "qc5_interp_param",
+      "question": "Does the repo expose the interpolation parameter between masked and uniform diffusion (the paper's main methodological novelty) as a first-class configurable in the training config?"
+    }
+  ],
+  "deep_investigation": {
+    "id": "deep_hybrid_schedule",
+    "prompt": "GIDD's central methodological claim is that interpolating between masked and uniform diffusion via a hybrid noise schedule (parameterized by `hybrid_mixing_scale` and `hybrid_mixing_shift`) yields better scaling behavior than pure masked diffusion alone. I want to independently audit whether the repo's actual training and inference code exercise this hybrid schedule faithfully, or whether the reported scaling curves could come from configurations that silently collapse to pure masked diffusion. Specifically: (a) trace `hybrid_mixing_scale` and `hybrid_mixing_shift` from the training YAML/config through to the loss computation and the forward noise process; (b) identify any default values, branch conditions, or zero-value short-circuits that would silently bypass the interpolation; (c) check whether the hybrid schedule is implemented consistently in BOTH the JAX training path and the PyTorch inference-fallback path (`modeling_gidd_hf.py`) — a one-path-only implementation would be a reproducibility risk; (d) verify the noise sampler actually consumes both parameters (not just one). Produce a full investigation with file:line evidence and report an honest verdict — including 'no issue found' if the implementation checks out. Do NOT fabricate a problem to find."
+  }
+}

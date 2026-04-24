@@ -1,0 +1,56 @@
+{
+  "run_id": "bench-gidd-check-qc3_checkpoints-r0-d36bd53e",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc3_checkpoints",
+  "question_text": "Are pretrained model checkpoints published externally (HuggingFace or similar) so inference-only evaluation is feasible without a full training run? Cite the reference if any.",
+  "repeat_idx": 0,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.0666,
+  "duration_ms": 14751,
+  "total_turns": 3,
+  "tool_calls": 2,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.98,
+    "evidence": [
+      {
+        "file": "README.md",
+        "line": 24,
+        "snippet": "| `gidd-unif-10b` | 10B | 9.15 | uniform | https://huggingface.co/dvruette/gidd-unif-10b |"
+      },
+      {
+        "file": "README.md",
+        "line": 25,
+        "snippet": "| `gidd-mask-3b` | 3B | 11.3 | masked | https://huggingface.co/dvruette/gidd-mask-3b |"
+      },
+      {
+        "file": "README.md",
+        "line": 26,
+        "snippet": "| `gidd-unif-3b` | 3B | 11.7 | uniform | https://huggingface.co/dvruette/gidd-unif-3b |"
+      },
+      {
+        "file": "README.md",
+        "line": 30,
+        "snippet": "The 3B and 10B models are available as converted PyTorch models on HuggingFace and can be used as follows:"
+      },
+      {
+        "file": "README.md",
+        "line": 37,
+        "snippet": "model_name = \\\"dvruette/gidd-unif-10b\\\""
+      }
+    ],
+    "notes": "Pretrained 3B/10B GIDD checkpoints are published on HuggingFace under the `dvruette/` namespace and are loadable for inference without retraining."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

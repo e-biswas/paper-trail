@@ -1,0 +1,50 @@
+{
+  "run_id": "bench-tabm-investigate-deep_ensemble_audit-r0-dfa0887a",
+  "ok": true,
+  "summary": "Careful code-reading audit on five plausible failure classes finds no reproducibility-breaking bug; verdict is well-grounded but the hypothesis space skews toward eval-protocol issues and leaves some data-pipeline / metric classes unexplored.",
+  "error": null,
+  "cost_usd": 0.15181624999999999,
+  "duration_ms": 15508,
+  "payload": {
+    "overall": "acceptable",
+    "summary": "Careful code-reading audit on five plausible failure classes finds no reproducibility-breaking bug; verdict is well-grounded but the hypothesis space skews toward eval-protocol issues and leaves some data-pipeline / metric classes unexplored.",
+    "confidence": 0.78,
+    "checks": [
+      {
+        "label": "hypothesis_coverage",
+        "mark": "warn",
+        "note": "Five hypotheses cover aggregation, k-sweep, head selection, param counting, and batch diversity \u2014 solid for eval protocol, but common tabular-DL failure classes (preprocessing/scaler fit leakage, categorical encoding train/val leakage, early-stopping selection criterion) were not enumerated."
+      },
+      {
+        "label": "evidence_quality",
+        "mark": "pass",
+        "note": "Every finding cites concrete file:line spans (e.g. model.py:536\u2013543, :715\u2013724, :441\u2013449) and the k=32 claim is supported by a 12,224-hit grep across paper/exp/**/*.toml."
+      },
+      {
+        "label": "fix_minimality",
+        "mark": "pass",
+        "note": "No diff was applied, consistent with the 'no fabricated fix' contract since the audit found no defect."
+      },
+      {
+        "label": "causal_link",
+        "mark": "pass",
+        "note": "No metric delta is reported and none is claimed; the Dossier explicitly omits the `## Metric delta:` block because no fix was applied, which is internally consistent."
+      },
+      {
+        "label": "alternative_explanations",
+        "mark": "warn",
+        "note": "The k=32 hard-coding finding is dismissed as a transparency gap, but the alternative \u2014 that Section 5.3's ablation numbers were produced from uncommitted scripts whose protocol may diverge from the shipped one \u2014 is acknowledged only in passing and not probed (e.g., by searching scripts/ or notebooks/ for k overrides)."
+      },
+      {
+        "label": "uncertainty_honesty",
+        "mark": "pass",
+        "note": "Remaining-uncertainty section lists five substantive, specific limitations (no GPU execution, un-audited metrics.py, un-audited baseline configs, deprecated tabm_reference.py, ablation data outside repo) rather than boilerplate."
+      },
+      {
+        "label": "suggested_followup",
+        "mark": "warn",
+        "note": "Grep paper/lib/data*.py and the preprocessing path for scaler/encoder fit-on-train-only discipline, and scan paper/lib/metrics.py to confirm ROC-AUC/accuracy/RMSE match sklearn semantics \u2014 both are standard tabular failure classes left unchecked."
+      }
+    ]
+  }
+}

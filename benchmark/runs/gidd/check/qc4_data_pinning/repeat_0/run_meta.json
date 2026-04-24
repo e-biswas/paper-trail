@@ -1,0 +1,51 @@
+{
+  "run_id": "bench-gidd-check-qc4_data_pinning-r0-48f268a1",
+  "paper": "gidd",
+  "mode": "check",
+  "question_id": "qc4_data_pinning",
+  "question_text": "Is the training data (Nemotron-CC) pinned to a specific version / preprocessing recipe in the repo, or does the code assume the user reproduces the data pipeline independently?",
+  "repeat_idx": 0,
+  "paper_url": "https://arxiv.org/abs/2512.10858",
+  "repo_slug": "dvruette/gidd-easydel",
+  "repo_clone": "/tmp/bench-gidd-check",
+  "reached_session_end": true,
+  "ok": true,
+  "stop_reason": "end_turn",
+  "cost_usd": 0.12,
+  "duration_ms": 12642,
+  "total_turns": 3,
+  "tool_calls": 2,
+  "claim_summary": null,
+  "hypotheses": [],
+  "verdicts": [],
+  "quick_check_verdict": {
+    "verdict": "confirmed",
+    "confidence": 0.92,
+    "evidence": [
+      {
+        "file": "README.md",
+        "line": 99,
+        "snippet": "The exact data split that was used for training, already pre-tokenized and pre-shuffled, is available here: https://huggingface.co/datasets/dvruette/gidd-nemotron-cc-pretok"
+      },
+      {
+        "file": "notebooks/test_inference.ipynb",
+        "line": 391,
+        "snippet": "train_dataset = load_dataset(\\\"dvruette/nemotron-cc-65btok\\\", split=\\\"train\\\", streaming=True)"
+      },
+      {
+        "file": "args.py",
+        "line": 64,
+        "snippet": "parser.add_argument(\\\"--tokenizer_id\\\", type=str, default=\\\"dvruette/nemotron-cc-bpe\\\", ...)"
+      },
+      {
+        "file": "nemotron-cc-split.txt",
+        "line": 1,
+        "snippet": "/local/home/dvruette/nemotron_tokenized/.../Nemotron-CC/data/quality=high/kind=actual/kind2=actual/CC-MAIN-2013-20-part-00006.parquet"
+      }
+    ],
+    "notes": "The repo pins training data to a specific pre-tokenized/pre-shuffled HF dataset (dvruette/gidd-nemotron-cc-pretok) plus a specific tokenizer and an explicit file-list split (nemotron-cc-split.txt), so users download it rather than reproduce the pipeline."
+  },
+  "fix_applied": null,
+  "metric_deltas": [],
+  "dossier_section_keys": []
+}

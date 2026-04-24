@@ -1,0 +1,50 @@
+{
+  "run_id": "bench-gidd-investigate-deep_hybrid_schedule-r0-9ac2a4d8",
+  "ok": true,
+  "summary": "Investigator correctly aborted on a non-runnable repo and identified a plausible mask-token suppression bias, but left three candidate defects un-ratified and could not produce a metric delta.",
+  "error": null,
+  "cost_usd": 0.14869225,
+  "duration_ms": 14310,
+  "payload": {
+    "overall": "acceptable",
+    "summary": "Investigator correctly aborted on a non-runnable repo and identified a plausible mask-token suppression bias, but left three candidate defects un-ratified and could not produce a metric delta.",
+    "confidence": 0.72,
+    "checks": [
+      {
+        "label": "hypothesis_coverage",
+        "mark": "pass",
+        "note": "Four hypotheses span loss-function bias (h1), loss-weight bug (h2), commented-out hybrid path (h3), and fixture availability (h4) \u2014 a reasonable span for a scaling-law repo with no small fixture."
+      },
+      {
+        "label": "evidence_quality",
+        "mark": "pass",
+        "note": "Each factual claim is tied to a specific file:line citation (loss.py:85, schedule.py:158\u2013197/488\u2013498, tests/test_schedule.py:607, schedule.py:443) and the JAX-absence claim is supported by an actual `python -c 'import jax'` failure."
+      },
+      {
+        "label": "fix_minimality",
+        "mark": "pass",
+        "note": "No fix was applied; the investigator correctly honored the contract's requirement that `## Metric delta:` must show a real before\u2192after number before writing code."
+      },
+      {
+        "label": "causal_link",
+        "mark": "warn",
+        "note": "No metric delta was produced, so causal-link assessment is vacuous for the primary hypothesis; the investigator's own estimate of h1's effect size (\u22482\u00b710\u207b\u2075 of probability mass) is acknowledged as speculative."
+      },
+      {
+        "label": "alternative_explanations",
+        "mark": "pass",
+        "note": "Remaining-uncertainty section explicitly raises alternatives for h2 (broadcasting, dtype, clip-floor interaction) and notes possible sha-drift in the unpinned EasyDeL/eformer forks as an alternative to any codebase-vs-paper discrepancy."
+      },
+      {
+        "label": "uncertainty_honesty",
+        "mark": "pass",
+        "note": "Five substantive limitations are listed (no Python executed, unverified h1 magnitude, un-traced h2 at batch shape, un-read main_gpu.py default config, uncontrolled fork sha drift) \u2014 genuine rather than boilerplate."
+      },
+      {
+        "label": "suggested_followup",
+        "mark": "warn",
+        "note": "Highest-value follow-up: add a conditional `if prior_distribution != Priors.UNIFORM` guard to loss.py:85 and run a 1-step ~25M-param forward pass at vocab=50257 to measure the PPL delta on uniform diffusion \u2014 this is the one check that would promote h1 from static-read to ratified."
+      }
+    ]
+  }
+}

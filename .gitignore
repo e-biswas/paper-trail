@@ -130,7 +130,7 @@ tmp/
 # Run store (events.jsonl + meta.json per run). Default home dir, but in case
 # a dev sets it to a project-relative path, swallow both locations.
 .paper-trail/
-runs/
+# runs/
 
 # Uploaded PDFs the user attaches through the UI. Personal content.
 uploads/

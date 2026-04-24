@@ -818,8 +818,20 @@ async def _run_sdk(config: RunConfig) -> AsyncIterator[dict[str, Any]]:
             fork_slug=fork_slug,
             auto_pr=config.auto_pr,
         )
+        op_brief = config.extras.get("user_prompt")
+        op_brief_block = ""
+        if isinstance(op_brief, str) and op_brief.strip():
+            op_brief_block = (
+                "## Operator brief\n\n"
+                "The operator framed this investigation with the text below. "
+                "Treat it as the steering question your hypotheses should address "
+                "first. If it points at a specific claim, mechanism, or file, "
+                "prioritize those failure classes. Still produce the full dossier.\n\n"
+                f"{op_brief.strip()}\n\n---\n\n"
+            )
         user_prompt = (
             (session_context if session_context else "")
+            + op_brief_block
             + "Paper context:\n\n"
             + "------------------\n"
             + f"{paper_context}\n"

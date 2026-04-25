@@ -4,7 +4,7 @@
 
 Built for the **"Built with Opus 4.7" Claude Code hackathon** (Cerebral Valley, Apr 21–26, 2026).
 
-![Paper Trail UI](docs/images/UI.png)
+![Paper Trail Poster](docs/images/poster.png)
 
 ---
 
@@ -79,6 +79,8 @@ cp .env.example .env
 ```
 
 In the composer:
+
+![Paper Trail UI](docs/images/UI.png)
 
 1. Click the sliders icon → paste `e-biswas/reproforensics-muchlinski-demo` into the Repo field → Attach.
 2. Switch mode to Deep Investigation.

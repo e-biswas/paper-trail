@@ -4,6 +4,8 @@
 
 Built for the **"Built with Opus 4.7" Claude Code hackathon** (Cerebral Valley, Apr 21–26, 2026).
 
+![Paper Trail UI](docs/images/UI.png)
+
 ---
 
 ## Why this exists

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Paper Trail - Agent Diagram</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="architecture.css" />
+  </head>
+  <body>
+    <div class="page-noise" aria-hidden="true"></div>
+
+    <main class="diagram-page">
+      <header class="panel hero reveal">
+        <h1 class="hero__title">Paper Trail Agent Communication</h1>
+        <p class="hero__copy">
+          Main Investigator coordinates focused agents. Each animated path shows
+          what gets sent, what the specialist does, and what comes back. The
+          Experiment Runner is the only lane that crosses into the code sandbox.
+        </p>
+      </header>
+
+      <section class="panel diagram-card reveal">
+        <div class="diagram-stage">
+          <svg
+            class="diagram-links"
+            viewBox="0 0 1200 760"
+            role="img"
+            aria-label="Animated agent system diagram"
+          >
+            <defs>
+              <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="rgba(15, 118, 110, 0.95)" />
+                <stop offset="100%" stop-color="rgba(68, 96, 127, 0.95)" />
+              </linearGradient>
+            </defs>
+
+            <g class="connection connection--paper" data-connection="paper">
+              <path class="connection__line" d="M 505 250 C 430 220, 380 190, 315 165" />
+              <path class="connection__flow" d="M 505 250 C 430 220, 380 190, 315 165" />
+              <circle class="connection__packet connection__packet--send" r="7">
+                <animateMotion
+                  dur="3.6s"
+                  repeatCount="indefinite"
+                  path="M 505 250 C 430 220, 380 190, 315 165"
+                />
+              </circle>
+              <circle class="connection__packet connection__packet--return" r="5.5">
+                <animateMotion
+                  dur="4.1s"
+                  begin="-1.9s"
+                  repeatCount="indefinite"
+                  keyPoints="1;0"
+                  keyTimes="0;1"
+                  calcMode="linear"
+                  path="M 505 250 C 430 220, 380 190, 315 165"
+                />
+              </circle>
+            </g>
+
+            <g class="connection connection--audit" data-connection="audit">
+              <path class="connection__line" d="M 485 338 C 400 346, 340 351, 275 356" />
+              <path class="connection__flow" d="M 485 338 C 400 346, 340 351, 275 356" />
+              <circle class="connection__packet connection__packet--send" r="7">
+                <animateMotion
+                  dur="3.4s"
+                  repeatCount="indefinite"
+                  path="M 485 338 C 400 346, 340 351, 275 356"
+                />
+              </circle>
+              <circle class="connection__packet connection__packet--return" r="5.5">
+                <animateMotion
+                  dur="3.9s"
+                  begin="-1.7s"
+                  repeatCount="indefinite"
+                  keyPoints="1;0"
+                  keyTimes="0;1"
+                  calcMode="linear"
+                  path="M 485 338 C 400 346, 340 351, 275 356"
+                />
+              </circle>
+            </g>
+
+            <g class="connection connection--runner" data-connection="runner">
+              <path class="connection__line" d="M 500 420 C 415 482, 350 540, 285 606" />
+              <path class="connection__flow" d="M 500 420 C 415 482, 350 540, 285 606" />
+              <circle class="connection__packet connection__packet--send" r="7.5">
+                <animateMotion
+                  dur="3.2s"
+                  repeatCount="indefinite"
+                  path="M 500 420 C 415 482, 350 540, 285 606"
+                />
+              </circle>
+              <circle class="connection__packet connection__packet--return" r="6">
+                <animateMotion
+                  dur="3.8s"
+                  begin="-1.8s"
+                  repeatCount="indefinite"
+                  keyPoints="1;0"
+                  keyTimes="0;1"
+                  calcMode="linear"
+                  path="M 500 420 C 415 482, 350 540, 285 606"
+                />
+              </circle>
+            </g>
+
+            <g class="connection connection--ledger" data-connection="ledger">
+              <path class="connection__line" d="M 600 442 C 600 505, 600 544, 600 580" />
+              <path class="connection__flow" d="M 600 442 C 600 505, 600 544, 600 580" />
+              <circle class="connection__packet connection__packet--send" r="7">
+                <animateMotion
+                  dur="2.9s"
+                  repeatCount="indefinite"
+                  path="M 600 442 C 600 505, 600 544, 600 580"
+                />
+              </circle>
+              <circle class="connection__packet connection__packet--return" r="5.5">
+                <animateMotion
+                  dur="3.3s"
+                  begin="-1.5s"
+                  repeatCount="indefinite"
+                  keyPoints="1;0"
+                  keyTimes="0;1"
+                  calcMode="linear"
+                  path="M 600 442 C 600 505, 600 544, 600 580"
+                />
+              </circle>
+            </g>
+
+            <g class="connection connection--validator" data-connection="validator">
+              <path class="connection__line" d="M 720 644 C 790 644, 850 635, 905 612" />
+              <path class="connection__flow" d="M 720 644 C 790 644, 850 635, 905 612" />
+              <circle class="connection__packet connection__packet--send" r="7">
+                <animateMotion
+                  dur="3.5s"
+                  repeatCount="indefinite"
+                  path="M 720 644 C 790 644, 850 635, 905 612"
+                />
+              </circle>
+              <circle class="connection__packet connection__packet--return" r="5.5">
+                <animateMotion
+                  dur="4s"
+                  begin="-1.8s"
+                  repeatCount="indefinite"
+                  keyPoints="1;0"
+                  keyTimes="0;1"
+                  calcMode="linear"
+                  path="M 720 644 C 790 644, 850 635, 905 612"
+                />
+              </circle>
+            </g>
+
+            <g class="connection connection--pr" data-connection="pr">
+              <path class="connection__line" d="M 690 608 C 780 558, 850 486, 900 396" />
+              <path class="connection__flow" d="M 690 608 C 780 558, 850 486, 900 396" />
+              <circle class="connection__packet connection__packet--send" r="7.5">
+                <animateMotion
+                  dur="3.3s"
+                  repeatCount="indefinite"
+                  path="M 690 608 C 780 558, 850 486, 900 396"
+                />
+              </circle>
+              <circle class="connection__packet connection__packet--return" r="6">
+                <animateMotion
+                  dur="3.9s"
+                  begin="-1.7s"
+                  repeatCount="indefinite"
+                  keyPoints="1;0"
+                  keyTimes="0;1"
+                  calcMode="linear"
+                  path="M 690 608 C 780 558, 850 486, 900 396"
+                />
+              </circle>
+            </g>
+          </svg>
+
+          <div class="sandbox-shell">
+            <div class="sandbox-shell__label">Code Sandbox</div>
+            <div class="sandbox-shell__meta">staged repo / timeout / output caps</div>
+          </div>
+
+          <article class="node node--paper" data-node="paper">
+            <div class="node__eyebrow">Paper agent</div>
+            <h2 class="node__title">Paper Reader</h2>
+            <p class="node__copy">
+              Extracts the paper's claim, metric, and method commitments.
+            </p>
+          </article>
+
+          <article class="node node--audit" data-node="audit">
+            <div class="node__eyebrow">Code agent</div>
+            <h2 class="node__title">Code Auditor</h2>
+            <p class="node__copy">
+              Reads the repo and returns evidence-backed code findings.
+            </p>
+          </article>
+
+          <article class="node node--runner" data-node="runner">
+            <div class="node__eyebrow">Execution agent</div>
+            <h2 class="node__title">Experiment Runner</h2>
+            <p class="node__copy">
+              Executes one discriminating command and captures the result.
+            </p>
+          </article>
+
+          <article class="node node--main" data-node="main">
+            <div class="node__eyebrow">Coordinator</div>
+            <h2 class="node__title">Main Investigator</h2>
+            <p class="node__copy">
+              Ranks hypotheses, decides the next check, merges each result, and
+              writes the final verdict and dossier.
+            </p>
+            <div class="node__chips">
+              <span class="node-chip node-chip--teal">delegates</span>
+              <span class="node-chip node-chip--amber">decides next step</span>
+              <span class="node-chip node-chip--rust">synthesizes verdict</span>
+            </div>
+          </article>
+
+          <article class="node node--ledger" data-node="ledger">
+            <div class="node__eyebrow">Persisted bus</div>
+            <h2 class="node__title">Run Ledger</h2>
+            <p class="node__copy">
+              Stores events, artifacts, changed files, and dossier state for later consumers.
+            </p>
+          </article>
+
+          <article class="node node--validator" data-node="validator">
+            <div class="node__eyebrow">Review agent</div>
+            <h2 class="node__title">Validator</h2>
+            <p class="node__copy">
+              Audits whether the evidence truly supports the conclusion.
+            </p>
+          </article>
+
+          <article class="node node--pr" data-node="pr">
+            <div class="node__eyebrow">GitHub agent</div>
+            <h2 class="node__title">PR Opener</h2>
+            <p class="node__copy">
+              Turns stored outputs into a branch and pull request flow.
+            </p>
+          </article>
+
+          <div class="edge-note edge-note--paper" data-edge-note="paper">
+            <span class="edge-note__send">paper brief</span>
+            <span class="edge-note__return">PaperSummary</span>
+          </div>
+
+          <div class="edge-note edge-note--audit" data-edge-note="audit">
+            <span class="edge-note__send">code question</span>
+            <span class="edge-note__return">AuditResult</span>
+          </div>
+
+          <div class="edge-note edge-note--runner" data-edge-note="runner">
+            <span class="edge-note__send">run command</span>
+            <span class="edge-note__return">RunResult</span>
+          </div>
+
+          <div class="edge-note edge-note--ledger" data-edge-note="ledger">
+            <span class="edge-note__send">events + dossier</span>
+            <span class="edge-note__return">persisted state</span>
+          </div>
+
+          <div class="edge-note edge-note--validator" data-edge-note="validator">
+            <span class="edge-note__send">transcript + diff</span>
+            <span class="edge-note__return">ValidityReport</span>
+          </div>
+
+          <div class="edge-note edge-note--pr" data-edge-note="pr">
+            <span class="edge-note__send">dossier + files</span>
+            <span class="edge-note__return">pr_opened</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="architecture.js"></script>
+  </body>
+</html>

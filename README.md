@@ -41,6 +41,8 @@ After any Deep Investigation, click **"Run validator"**. A fresh Opus 4.7 agent 
 
 ## Demo
 
+**[Watch the demo video on YouTube](https://youtu.be/j_11iV3FKdw)**
+
 Curated demo repos are live on the bot account — no pre-cloning required:
 
 - **`e-biswas/reproforensics-muchlinski-demo`** — Muchlinski 2016 "Random Forest vs Logistic Regression for Civil War Prediction." Classic imputation-before-split leakage. When fixed, RF AUC drops 0.9562 → 0.9070 and LR drops 0.8091 → 0.6962 — the paper's central claim (*RF ≫ LR*) evaporates.

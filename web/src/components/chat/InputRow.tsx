@@ -38,6 +38,7 @@ interface RepoResolution {
   local_path: string
   slug: string | null
   default_branch: string | null
+  requested_branch: string | null
   source: "clone" | "cache" | "local"
   already_cloned: boolean
   warning: string | null
@@ -103,6 +104,13 @@ function RepoStatusPill({
     cache: "cached",
     local: "local",
   }[resolution.source]
+  const branchLabel = resolution.default_branch
+  // A mismatch between what the user asked for and what's checked out
+  // would mean the cache validator missed something — surface it loudly.
+  const branchMismatch =
+    resolution.requested_branch != null &&
+    resolution.default_branch != null &&
+    resolution.requested_branch !== resolution.default_branch
   return (
     <span
       className={cn(
@@ -113,10 +121,27 @@ function RepoStatusPill({
       <Check size={10} />
       <Icon size={10} />
       <span className="font-mono">{label}</span>
-      <span className="text-muted-fg">
-        · {source}
-        {resolution.default_branch ? ` · branch: ${resolution.default_branch}` : ""}
-      </span>
+      {branchLabel && (
+        <span
+          className={cn(
+            "font-mono",
+            resolution.requested_branch ? "text-status-confirmed" : "text-muted-fg",
+          )}
+          title={
+            resolution.requested_branch
+              ? `Branch parsed from URL: ${resolution.requested_branch}`
+              : "Default branch (no /tree/<branch> in the URL)"
+          }
+        >
+          @ {branchLabel}
+        </span>
+      )}
+      <span className="text-muted-fg">· {source}</span>
+      {branchMismatch && (
+        <span className="text-status-refuted">
+          · ⚠ requested {resolution.requested_branch}, got {resolution.default_branch}
+        </span>
+      )}
       {resolution.warning && (
         <span className="text-status-refuted">· ⚠ {resolution.warning}</span>
       )}
@@ -126,13 +151,17 @@ function RepoStatusPill({
 
 /** Does the user's typed input match what we already resolved? */
 function _matchesResolution(input: string, r: RepoResolution): boolean {
-  const i = input.trim()
-  return (
-    i === r.local_path ||
-    i === r.slug ||
-    (r.slug != null && i.toLowerCase() === `https://github.com/${r.slug}`.toLowerCase()) ||
-    (r.slug != null && i.toLowerCase() === `https://github.com/${r.slug}.git`.toLowerCase())
-  )
+  const i = input.trim().toLowerCase()
+  if (i === r.local_path.toLowerCase()) return true
+  if (r.slug != null && i === r.slug.toLowerCase()) return true
+  if (r.slug == null) return false
+  const base = `https://github.com/${r.slug}`.toLowerCase()
+  if (i === base || i === `${base}.git`) return true
+  // Branch-URL form: `.../tree/<branch>`. Trailing slashes tolerated.
+  if (r.requested_branch && i.replace(/\/+$/, "") === `${base}/tree/${r.requested_branch}`.toLowerCase()) {
+    return true
+  }
+  return false
 }
 
 /** Claude-Code-style composer: textarea grows upward, controls inside the box. */
@@ -380,6 +409,10 @@ export function InputRow({
                 </span>
               )}
             </span>
+            <span className="text-[10px] text-muted-fg/80">
+              Tip · paste <code className="font-mono">.../tree/&lt;branch&gt;</code> to attach a non-default branch.
+              Each branch gets its own cache, so runs can't cross-contaminate.
+            </span>
             <div className="flex gap-1.5">
               <input
                 value={repoInput}
@@ -402,7 +435,7 @@ export function InputRow({
                     void attachRepo(repoInput)
                   }
                 }}
-                placeholder="e-biswas/reproforensics-muchlinski-demo  ·  https://github.com/…  ·  /tmp/muchlinski-demo"
+                placeholder="e-biswas/paper-trail  ·  https://github.com/…/tree/eb/video-materials  ·  /tmp/muchlinski-demo"
                 className="flex-1 rounded-md border border-border bg-input px-2 py-1.5 font-mono text-xs focus:border-ring focus:outline-none"
               />
               <button

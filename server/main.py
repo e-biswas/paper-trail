@@ -777,11 +777,16 @@ async def attach_repo(input: str) -> dict[str, Any]:
         {
           "local_path": "/abs/path/to/repo",
           "slug": "owner/repo" | null,
-          "default_branch": "main" | null,
+          "default_branch": "main" | null,         # branch the local checkout is on
+          "requested_branch": "feature/x" | null,  # parsed from /tree/<branch> URL, if any
           "source": "clone" | "cache" | "local",
           "already_cloned": true/false,
           "warning": "string" | null
         }
+
+    Pasting a `https://github.com/<owner>/<repo>/tree/<branch>` URL clones
+    that branch specifically; the cache is keyed per branch so different
+    branches of the same repo never share a working tree.
     """
     from server.repos import RepoAttachError, resolve_repo
 
@@ -797,6 +802,7 @@ async def attach_repo(input: str) -> dict[str, Any]:
         "local_path": str(resolved.local_path),
         "slug": resolved.slug,
         "default_branch": resolved.default_branch,
+        "requested_branch": resolved.requested_branch,
         "source": resolved.source,
         "already_cloned": resolved.already_cloned,
         "warning": resolved.warning,

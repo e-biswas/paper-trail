@@ -226,3 +226,15 @@ Priorities, in order:
 Build still green. Backend reload picks up the new `user_prompt` parsing; verified the round-trip against a Haiku Quick Check. 
 
 What's left (user-driven): the demo video screen-recording, one more dry run after the cut, and submission to Cerebral Valley. The technical surface is frozen; the remaining work is narrative.
+
+## 2026-04-26 — Branch-aware attach (D4.16.1)
+
+User flagged a class of bug hiding inside `/repos/attach`: paste `https://github.com/owner/repo/tree/eb/video-materials` and we'd silently clone `main` instead. Three layered failures — the regex's `(?:/.*)?$` ate the `/tree/branch` portion entirely, `git clone` had no `--branch` flag, and the cache key was `owner__repo` (branch-blind), so a second attach with a *different* branch URL just returned the prior `main` clone. For a *reproducibility* tool that's not a paper cut: reading the wrong branch's code = wrong verdict.
+
+Plan A: parse `/tree/<branch>` (greedy capture so slash-bearing branches survive), key the cache per-(slug, branch), pass `--branch` through, and validate cache hits — HEAD must match the requested branch and `git status --porcelain` must be empty. If either check fails, wipe and reclone, surfacing a `warning` so the user knows their previous state is gone (which was the user's explicit ask: tell them when we reset).
+
+The regex took two passes. First version was non-greedy on the branch and got `eb` from `eb/video-materials` because the trailing `(?:[/?#].*)?$` was eating the rest. Switched to greedy `[^\s?#]+`, which works because `?` and `#` are the actual terminators on a GitHub URL. Tradeoff: GitHub also has `/tree/<branch>/<subdir>` URLs (folder listing within a branch), and those would now be misread as `branch=<branch>/<subdir>`. Accepted — `git clone --branch` will fail loudly with "remote branch not found" and the user re-pastes; the slash-bearing-branch case is the much commoner one.
+
+End-to-end on the user's exact URL: 5/5 cases pass — cold branch clone, warm cache hit, bare-slug attach to the same repo gets its own `owner__repo` cache dir (no collision with `owner__repo__eb--video-materials`), dirty tree → reset+warning, HEAD on wrong branch → reset+warning. Frontend pill now shows `@ branch` (green when explicitly requested via `/tree/...`, muted when default), and the composer has a one-line tip about pasting `/tree/<branch>` URLs.
+
+One thing I noticed but didn't fix: `cwd=resolved.local_path` ([agent.py:862](server/agent.py#L862)) means the agent runs *in* the cached clone, so any edits or branch checkouts persist across runs. Today's cache validator catches that on next attach (dirty tree → reset), but ideally the agent would run in a per-run scratch copy so state never leaks. Logged it as a Plan C for later — feels scope-risky this close to freeze, and the validator now covers the worst case.

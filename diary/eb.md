@@ -194,3 +194,9 @@ Told Claude "next phase, auto mode" after the unified repo attach landed. Came b
 Dry run with Opus on the cached Muchlinski clone: 9.3s / $0.14, correct refuted verdict with citations. Clean. One thing surfaced: old Deep Investigation runs had the verdict text as the sidebar title because the user's prompt wasn't persisted server-side. Claude threaded a `user_prompt` field through the whole stack and fixed it.
 
 Left for me: record the 4-act demo video, final dry run after the cut, submit to Cerebral Valley.
+
+## 2026-04-26 — Caught a branch-attach corner case
+
+Was trying to attach a non-default branch of paper-trail itself (`tree/eb/video-materials`) and noticed the UI said "branch: main" regardless. Walked Claude through it: URL parser dropped the `/tree/<branch>` portion entirely, `git clone` had no `--branch` flag, and the cache key was just `owner__repo` — so once a repo got cloned on the wrong branch, every future attach silently returned that same clone no matter what URL I pasted. For a reproducibility tool that's a real correctness bug, not cosmetic.
+
+Asked for the analysis before any code, picked Plan A (regex fix + per-branch cache + cache validation with a user-visible reset warning). End-to-end on the actual URL works: pill shows the branch in green when I paste a `/tree/...` URL, dirty cache or wrong-HEAD triggers a clean reclone with the warning surfaced. Cache dirs now sit side-by-side per branch, no cross-contamination between runs on different branches of the same repo.
